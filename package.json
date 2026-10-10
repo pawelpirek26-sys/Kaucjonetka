@@ -4,8 +4,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.22",
+    "@infinitered/react-native-mlkit-text-recognition": "^5.0.1",
     "@maplibre/maplibre-react-native": "^11.5.0",
-    "@react-native-ml-kit/text-recognition": "^2.0.0",
     "@supabase/supabase-js": "^2.117.3",
     "expo": "~57.0.27",
     "expo-apple-authentication": "~57.0.2",
@@ -67,6 +67,7 @@
     "testPathIgnorePatterns": [
       "/node_modules/",
       "/supabase/"
-    ]
+    ],
+    "globalSetup": "<rootDir>/tests/jest.global-setup.js"
   }
 }

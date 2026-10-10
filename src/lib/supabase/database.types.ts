@@ -103,6 +103,40 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"osm_import_regions": {
+                  Row: {
+                    "code": string,"last_error": string | null,"last_failed_at": string | null,"last_started_at": string | null,"last_success_at": string | null,"machines_count": number | null,"name": string,"stores_count": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "code": string,"last_error"?: string | null,"last_failed_at"?: string | null,"last_started_at"?: string | null,"last_success_at"?: string | null,"machines_count"?: number | null,"name": string,"stores_count"?: number | null
+                  }
+                  Update: {
+                    "code"?: string,"last_error"?: string | null,"last_failed_at"?: string | null,"last_started_at"?: string | null,"last_success_at"?: string | null,"machines_count"?: number | null,"name"?: string,"stores_count"?: number | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"osm_import_runs": {
+                  Row: {
+                    "error": string | null,"finished_at": string,"id": number,"machines_deactivated": number | null,"machines_linked": number | null,"machines_upserted": number | null,"region": string,"stores_deactivated": number | null,"stores_upserted": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "error"?: string | null,"finished_at"?: string,"id"?: never,"machines_deactivated"?: number | null,"machines_linked"?: number | null,"machines_upserted"?: number | null,"region": string,"stores_deactivated"?: number | null,"stores_upserted"?: number | null
+                  }
+                  Update: {
+                    "error"?: string | null,"finished_at"?: string,"id"?: never,"machines_deactivated"?: number | null,"machines_linked"?: number | null,"machines_upserted"?: number | null,"region"?: string,"stores_deactivated"?: number | null,"stores_upserted"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "osm_import_runs_region_fkey"
+      columns: ["region"]
+isOneToOne: false
+      referencedRelation: "osm_import_regions"
+      referencedColumns: ["code"]
+    }
+                  ]
                 },"point_submissions": {
                   Row: {
                     "accepts": (Database["public"]['Enums']["packaging"])[],"brand": string | null,"created_at": string,"geom": unknown,"id": number,"kind": Database["public"]['Enums']["point_kind"],"machine_id": number | null,"name": string | null,"note": string | null,"reviewed_at": string | null,"status": Database["public"]['Enums']["submission_status"],"store_id": number | null,"user_id": string
@@ -241,7 +275,13 @@ isOneToOne: false
                 }
           }
           Functions: {
-            "make_point":
+            "import_osm_region":
+{ Args: { "p_machines": Json,"p_region": string,"p_stores": Json }; Returns: Json
+                           },
+"import_osm_region_failed":
+{ Args: { "p_error": string,"p_region": string }; Returns: undefined
+                           },
+"make_point":
 { Args: { "p_lat": number,"p_lon": number }; Returns: unknown
                            },
 "map_points":
@@ -253,6 +293,9 @@ isOneToOne: false
 { Args: { "p_lat": number,"p_limit"?: number,"p_lon": number,"p_radius_m"?: number }; Returns: {
               "brand": string,"city": string,"distance_m": number,"housenumber": string,"id": number,"lat": number,"lon": number,"machine_count": number,"machine_id": number,"name": string,"shop": string,"street": string
             }[]
+                           },
+"osm_import_next_region":
+{ Args: Record<PropertyKey, never>; Returns: string
                            },
 "recompute_machine_status":
 { Args: { "p_machine_id": number }; Returns: undefined
@@ -300,6 +343,11 @@ isOneToOne: false
         isOneToOne: true
         isSetofReturn: false
       } },
+"stores_by_ids":
+{ Args: { "p_ids": (number)[] }; Returns: {
+              "brand": string,"city": string,"housenumber": string,"id": number,"lat": number,"lon": number,"machine_count": number,"machine_id": number,"name": string,"shop": string,"street": string
+            }[]
+                           },
 "submit_point":
 { Args: { "p_accepts"?: (Database["public"]['Enums']["packaging"])[],"p_brand"?: string,"p_kind": Database["public"]['Enums']["point_kind"],"p_lat": number,"p_lon": number,"p_machine_id"?: number,"p_name"?: string,"p_note"?: string,"p_store_id"?: number }; Returns: {
               "accepts": (Database["public"]['Enums']["packaging"])[],
