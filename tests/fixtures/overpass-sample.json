@@ -1,0 +1,29 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API (fixture for tests)",
+  "osm3s": { "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL." },
+  "elements": [
+    { "type": "node", "id": 9000000001, "lat": 52.2297, "lon": 21.0122,
+      "tags": { "shop": "supermarket", "brand": "Lidl", "brand:wikidata": "Q151954", "name": "Lidl",
+                "addr:street": "Marszałkowska", "addr:housenumber": "104", "addr:city": "Warszawa",
+                "addr:postcode": "00-017", "opening_hours": "Mo-Sa 06:00-22:00" } },
+    { "type": "way", "id": 900000002, "center": { "lat": 52.2350, "lon": 21.0050 },
+      "tags": { "shop": "supermarket", "brand": "Biedronka", "brand:wikidata": "Q857182", "name": "Biedronka" } },
+    { "type": "node", "id": 9000000003, "lat": 52.2301, "lon": 21.0130,
+      "tags": { "shop": "convenience", "brand": "Żabka", "brand:wikidata": "Q2589061", "name": "Żabka" } },
+    { "type": "node", "id": 9000000004, "lat": 52.2298, "lon": 21.0124,
+      "tags": { "amenity": "vending_machine", "vending": "bottle_return", "operator": "Lidl",
+                "recycling:plastic_bottles": "yes", "recycling:cans": "yes" } },
+    { "type": "node", "id": 9000000005, "lat": 52.2351, "lon": 21.0052,
+      "tags": { "amenity": "recycling", "recycling_type": "reverse_vending_machine",
+                "recycling:glass_bottles": "yes" } },
+    { "type": "node", "id": 9000000006, "lat": 52.3000, "lon": 21.1000,
+      "tags": { "amenity": "vending_machine", "vending": "bottle_return" } },
+    { "type": "node", "id": 9000000007, "lat": 52.2400, "lon": 21.0200,
+      "tags": { "shop": "convenience", "name": "Sklep bez sieci" } },
+    { "type": "way", "id": 900000008,
+      "tags": { "shop": "supermarket", "brand": "Kaufland" } },
+    { "type": "node", "id": 9000000001, "lat": 52.2297, "lon": 21.0122,
+      "tags": { "shop": "supermarket", "brand": "Lidl", "name": "Lidl (duplicate)" } }
+  ]
+}

@@ -1,6 +1,10 @@
 begin;
 select plan(34);
 
+-- independent of whatever the local database already holds (rolled back at the end)
+set local client_min_messages to warning;
+truncate public.stores, public.machines, public.osm_import_runs restart identity cascade;
+
 -- ---------------------------------------------------------------- fixtures
 insert into auth.users (id, email, aud, role) values
   ('11111111-1111-1111-1111-111111111111', 'a@example.com', 'authenticated', 'authenticated'),
