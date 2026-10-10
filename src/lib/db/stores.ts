@@ -76,3 +76,24 @@ export async function missingStoreIds(db: Db, ids: number[]): Promise<number[]> 
   const known = new Set(rows.map((r) => r.id));
   return [...new Set(ids)].filter((id) => !known.has(id));
 }
+
+/** Stores the user picked recently (works offline as a fallback list). */
+export async function recentStores(db: Db, limit = 5): Promise<CachedStore[]> {
+  const rows = await db.getAllAsync<StoreRow>('select * from stores_cache order by updated_at desc limit ?', limit);
+  return rows.map(storeFromRow);
+}
+
+export function storeFromNearest(s: {
+  id: number;
+  name: string | null;
+  brand: string | null;
+  lat: number;
+  lon: number;
+  street: string | null;
+  housenumber: string | null;
+  city: string | null;
+  machine_count: number;
+  machine_id: number | null;
+}): CachedStore {
+  return storeFromRow(s);
+}

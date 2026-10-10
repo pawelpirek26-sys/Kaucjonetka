@@ -1,4 +1,4 @@
-import { type ISODate } from '@/lib/dates';
+import { toISODate, type ISODate } from '@/lib/dates';
 
 import { storeFromRow, type CachedStore } from './stores';
 import type { Db, SqlValue } from './types';
@@ -139,13 +139,21 @@ export async function insertCoupon(db: Db, id: string, input: CouponInput, now =
   return (await getCoupon(db, id))!;
 }
 
-export async function updateCoupon(db: Db, id: string, input: CouponInput, now = new Date().toISOString()): Promise<Coupon> {
+/** Updates the editable fields; an expired coupon whose date was corrected becomes active again. */
+export async function updateCoupon(
+  db: Db,
+  id: string,
+  input: CouponInput,
+  now = new Date().toISOString(),
+  today: ISODate = toISODate(new Date()),
+): Promise<Coupon> {
   await db.runAsync(
     `update coupons set amount_grosze = ?, issued_on = ?, expires_on = ?, barcode = ?, barcode_type = ?, store_id = ?,
-                        note = ?, photo_uri = ?, updated_at = ?, dirty = 1
+                        note = ?, photo_uri = ?, updated_at = ?, dirty = 1,
+                        status = case when status = 'expired' and (?3 is null or ?3 >= ?) then 'active' else status end
       where id = ?`,
     input.amountGrosze, input.issuedOn, input.expiresOn, input.barcode, input.barcodeType, input.storeId,
-    input.note, input.photoUri, now, id,
+    input.note, input.photoUri, now, today, id,
   );
   return (await getCoupon(db, id))!;
 }

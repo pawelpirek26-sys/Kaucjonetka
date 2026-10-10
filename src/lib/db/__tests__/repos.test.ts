@@ -14,6 +14,7 @@ import {
   listCoupons,
   markSynced,
   setCouponStatus,
+  updateCoupon,
   walletSummary,
   type CouponInput,
 } from '../coupons';
@@ -72,6 +73,12 @@ describe('wallet repositories (real SQLite)', () => {
     await insertCoupon(db, 'b', input({ expiresOn: '2026-10-10' }));
     expect(await expireOverdue(db, '2026-10-10')).toBe(1);
     expect((await getCoupon(db, 'a'))?.status).toBe('expired');
+    expect((await getCoupon(db, 'b'))?.status).toBe('active');
+
+    // the user fixes a misread date: the coupon is active again
+    await updateCoupon(db, 'a', input({ expiresOn: '2026-10-30' }), undefined, '2026-10-10');
+    expect((await getCoupon(db, 'a'))?.status).toBe('active');
+    await updateCoupon(db, 'b', input({ expiresOn: '2026-10-01' }), undefined, '2026-10-10');
     expect((await getCoupon(db, 'b'))?.status).toBe('active');
   });
 
