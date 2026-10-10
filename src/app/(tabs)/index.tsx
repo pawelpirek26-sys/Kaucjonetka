@@ -1,14 +1,15 @@
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, Chip, EmptyState, Row } from '@/components/ui';
 import { Radius, Spacing } from '@/constants/theme';
+import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { addDays, daysBetween, formatPlDate, toISODate } from '@/lib/dates';
-import { listCoupons, walletSummary, type Coupon, type CouponStatus, type WalletSummary } from '@/lib/db/coupons';
+import { listCoupons, walletSummary, type Coupon, type CouponStatus } from '@/lib/db/coupons';
 import { getDb } from '@/lib/db';
 import { getStore, storeLabel } from '@/lib/db/stores';
 import { useWalletRevision } from '@/lib/events';
@@ -38,31 +39,23 @@ export default function WalletScreen() {
   const revision = useWalletRevision();
 
   const [status, setStatus] = useState<CouponStatus>('active');
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [summary, setSummary] = useState<WalletSummary | null>(null);
-  const [storeName, setStoreName] = useState<string | null>(null);
   const today = toISODate(new Date());
-
-  useFocusEffect(
-    useCallback(() => {
-      let alive = true;
-      (async () => {
-        const db = await getDb();
-        const [list, sum, store] = await Promise.all([
-          listCoupons(db, status),
-          walletSummary(db, addDays(toISODate(new Date()), 3)),
-          storeFilter ? getStore(db, storeFilter) : Promise.resolve(null),
-        ]);
-        if (!alive) return;
-        setCoupons(storeFilter ? list.filter((c) => c.storeId === storeFilter) : list);
-        setSummary(sum);
-        setStoreName(store ? storeLabel(store) : null);
-      })();
-      return () => {
-        alive = false;
-      };
-    }, [status, storeFilter, revision]),
-  );
+  const { data } = useQuery(async () => {
+    const db = await getDb();
+    const [list, summary, store] = await Promise.all([
+      listCoupons(db, status),
+      walletSummary(db, addDays(toISODate(new Date()), 3)),
+      storeFilter ? getStore(db, storeFilter) : Promise.resolve(null),
+    ]);
+    return {
+      coupons: storeFilter ? list.filter((c) => c.storeId === storeFilter) : list,
+      summary,
+      storeName: store ? storeLabel(store) : null,
+    };
+  }, [status, storeFilter, revision]);
+  const coupons = data?.coupons ?? [];
+  const summary = data?.summary ?? null;
+  const storeName = data?.storeName ?? null;
 
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: theme.background }}>

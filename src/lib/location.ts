@@ -3,7 +3,7 @@ import * as Location from 'expo-location';
 import type { LatLon } from '@/lib/geo';
 
 export class LocationUnavailableError extends Error {
-  constructor(reason: 'permission' | 'unavailable') {
+  constructor(public readonly reason: 'permission' | 'unavailable') {
     super(reason);
   }
 }

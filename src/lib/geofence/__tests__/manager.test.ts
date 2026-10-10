@@ -5,7 +5,13 @@
 import { Platform } from 'react-native';
 
 import { createTestDb } from '../../../../tests/helpers/nodeSqlite';
+import { insertCoupon } from '@/lib/db/coupons';
+import { migrate } from '@/lib/db/schema';
+import { getSettings, updateSettings } from '@/lib/db/settings';
+import { upsertStore } from '@/lib/db/stores';
 import type { Db } from '@/lib/db/types';
+import { hrefForResponse } from '@/lib/notifications/schedule';
+import { handleGeofenceEvent, refreshGeofences } from '../manager';
 
 let mockDb: Db;
 const mockLocation = {
@@ -49,11 +55,6 @@ jest.mock('expo-notifications', () => ({
 }));
 jest.mock('@/lib/notifications/setup', () => ({ CHANNEL_STORE: 'store', CHANNEL_REMINDERS: 'reminders', CATEGORY_STORE_EXIT: 'store-exit', ACTION_SCAN: 'scan', ACTION_REPORT: 'report' }));
 
-import { insertCoupon } from '@/lib/db/coupons';
-import { migrate } from '@/lib/db/schema';
-import { updateSettings, getSettings } from '@/lib/db/settings';
-import { upsertStore } from '@/lib/db/stores';
-import { handleGeofenceEvent, refreshGeofences } from '../manager';
 
 const ENTER = 1;
 const EXIT = 2;
@@ -160,7 +161,6 @@ describe('geofence manager', () => {
 });
 
 describe('notification actions', () => {
-  const { hrefForResponse } = require('@/lib/notifications/schedule') as typeof import('@/lib/notifications/schedule');
   const response = (actionIdentifier: string, data: object) =>
     ({ actionIdentifier, notification: { request: { content: { data } } } }) as unknown as Parameters<typeof hrefForResponse>[0];
 

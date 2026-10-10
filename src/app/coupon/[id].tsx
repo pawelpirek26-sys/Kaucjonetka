@@ -1,15 +1,15 @@
 import { Image } from 'expo-image';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Alert, StyleSheet } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, Chip, EmptyState, Row, Screen } from '@/components/ui';
 import { Fonts, Radius } from '@/constants/theme';
+import { useQuery } from '@/hooks/use-query';
 import { useTheme } from '@/hooks/use-theme';
 import { afterWalletChange } from '@/lib/bootstrap';
 import { formatPlDate, toISODate } from '@/lib/dates';
-import { deleteCoupon, effectiveStatus, getCoupon, setCouponStatus, type Coupon, type CouponStatus } from '@/lib/db/coupons';
+import { deleteCoupon, effectiveStatus, getCoupon, setCouponStatus, type CouponStatus } from '@/lib/db/coupons';
 import { getDb } from '@/lib/db';
 import { storeAddress, storeLabel } from '@/lib/db/stores';
 import { useWalletRevision } from '@/lib/events';
@@ -24,20 +24,13 @@ export default function CouponScreen() {
   const router = useRouter();
   const theme = useTheme();
   const revision = useWalletRevision();
-  const [coupon, setCoupon] = useState<Coupon | null | undefined>(undefined);
-  const [photo, setPhoto] = useState<string | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      (async () => {
-        const c = await getCoupon(await getDb(), id);
-        setCoupon(c);
-        if (c?.photoUri) setPhoto(c.photoUri);
-        else if (c?.photoPath) setPhoto(await remotePhotoUrl(c.photoPath));
-        else setPhoto(null);
-      })();
-    }, [id, revision]),
-  );
+  const { data } = useQuery(async () => {
+    const c = await getCoupon(await getDb(), id);
+    const photo = c?.photoUri ?? (c?.photoPath ? await remotePhotoUrl(c.photoPath) : null);
+    return { coupon: c, photo };
+  }, [id, revision]);
+  const coupon = data?.coupon;
+  const photo = data?.photo ?? null;
 
   if (coupon === undefined) return null;
   if (coupon === null) {
