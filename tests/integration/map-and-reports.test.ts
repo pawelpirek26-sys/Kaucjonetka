@@ -117,11 +117,30 @@ run('map and reports (local Supabase)', () => {
     expect((await api.mapPoints(bbox, { brands: null, accepts: null, onlyWorking: true, storeIds: null })).map((p) => p.name)).toEqual(['Lidl Test']);
   });
 
-  it('lets users submit a missing machine for moderation', async () => {
-    mockClient = await userClient(`submitter-${Date.now()}@example.com`);
+  it('adds a missing machine once two different users report it', async () => {
+    const first = await userClient(`submitter-${Date.now()}@example.com`);
+    mockClient = first;
     const zabka = (await api.nearestStores(at(400), 50, 1))[0];
+    expect(zabka.machine_count).toBe(0);
+    await expect(api.submitMissingMachine(zabka.id, at(0), [], null)).rejects.toMatchObject({ code: 'too_far' });
+
     const sub = await api.submitMissingMachine(zabka.id, at(405), ['pet'], null);
     expect(sub).toMatchObject({ kind: 'new_machine', status: 'pending', store_id: zabka.id });
-    await expect(api.submitMissingMachine(zabka.id, at(0), [], null)).rejects.toMatchObject({ code: 'too_far' });
+    expect(await api.pendingMachineConfirmations(zabka.id)).toEqual({ users: 1, mine: true });
+    await expect(api.submitMissingMachine(zabka.id, at(405), ['pet'], null)).rejects.toMatchObject({
+      code: 'duplicate_submission',
+      message: 'Już zgłosiłeś automat w tym sklepie. Pojawi się na mapie, gdy potwierdzi go druga osoba.',
+    });
+
+    mockClient = await userClient(`confirmer-${Date.now()}@example.com`);
+    expect(await api.pendingMachineConfirmations(zabka.id)).toEqual({ users: 1, mine: false });
+    expect((await api.submitMissingMachine(zabka.id, at(395), ['can'], null)).status).toBe('approved');
+
+    mockClient = createClient<Database>(URL!, ANON!, { auth: { persistSession: false } });
+    const [machine] = await api.machinesAtStore(zabka.id);
+    expect(machine).toMatchObject({ source: 'user', accepts: ['pet', 'can'], status: 'unknown' });
+    const point = (await api.mapPoints(bbox, { brands: ['Żabka'], accepts: null, onlyWorking: false, storeIds: null }))[0];
+    expect(point.machine_count).toBe(1);
+    await admin().from('machines').delete().eq('id', machine.id!);
   });
 });

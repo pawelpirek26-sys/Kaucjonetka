@@ -44,6 +44,7 @@ const MESSAGES: Record<string, string> = {
   own_report: 'Nie możesz potwierdzać własnego zgłoszenia.',
   report_too_old: 'To zgłoszenie jest już nieaktualne.',
   target_required: 'Wybierz punkt, którego dotyczy zgłoszenie.',
+  duplicate_submission: 'Już zgłosiłeś automat w tym sklepie. Pojawi się na mapie, gdy potwierdzi go druga osoba.',
   network: 'Brak połączenia z internetem. Spróbuj ponownie.',
 };
 
@@ -112,6 +113,12 @@ export function voteReport(reportId: number, stillValid: boolean, at: LatLon): P
   return call(requireSupabase().rpc('vote_report', { p_report_id: reportId, p_still_valid: stillValid, p_lat: at.lat, p_lon: at.lon }));
 }
 
+export async function pendingMachineConfirmations(storeId: number): Promise<{ users: number; mine: boolean }> {
+  const rows = await call(requireSupabase().rpc('pending_machine_confirmations', { p_store_id: storeId }));
+  return rows[0] ?? { users: 0, mine: false };
+}
+
+/** Reports a missing machine at a store; the second distinct user's report adds it to the map. */
 export function submitMissingMachine(storeId: number, at: LatLon, accepts: Packaging[], note: string | null) {
   return call(
     requireSupabase().rpc('submit_point', {

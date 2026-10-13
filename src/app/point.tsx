@@ -5,7 +5,17 @@ import { ActivityIndicator, Alert, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, Chip, EmptyState, Row, Screen, StatusDot } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
-import { machineById, machinesAtStore, storesByIds, submitMissingMachine, toApiError, voteReport, type MachineLive, type StoreById } from '@/lib/api';
+import {
+  machineById,
+  machinesAtStore,
+  pendingMachineConfirmations,
+  storesByIds,
+  submitMissingMachine,
+  toApiError,
+  voteReport,
+  type MachineLive,
+  type StoreById,
+} from '@/lib/api';
 import { useSession } from '@/lib/auth';
 import { couponsAtStore } from '@/lib/db/coupons';
 import { getDb } from '@/lib/db';
@@ -32,6 +42,7 @@ export default function PointScreen() {
   const [store, setStore] = useState<StoreById | null>(null);
   const [machines, setMachines] = useState<MachineLive[]>([]);
   const [mine, setMine] = useState<{ count: number; sumGrosze: number } | null>(null);
+  const [pending, setPending] = useState<{ users: number; mine: boolean } | null>(null);
   const [me, setMe] = useState<LatLon | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [busy, setBusy] = useState<string | null>(null);
@@ -44,6 +55,7 @@ export default function PointScreen() {
         setStore(stores[0] ?? null);
         setMachines(list);
         setMine(await couponsAtStore(await getDb(), storeId));
+        setPending(list.length === 0 ? await pendingMachineConfirmations(storeId) : null);
       } else if (machineId) {
         const m = await machineById(machineId);
         setMachines(m ? [m] : []);
@@ -91,8 +103,13 @@ export default function PointScreen() {
     if (!storeId || !requireSession()) return;
     setBusy('add');
     try {
-      await submitMissingMachine(storeId, await getPosition({ precise: true }), [], null);
-      setNotice('Dziękujemy! Zgłoszenie automatu czeka na weryfikację.');
+      const result = await submitMissingMachine(storeId, await getPosition({ precise: true }), [], null);
+      if (result.status === 'approved') {
+        setNotice('Dziękujemy! Automat jest już na mapie. Możesz od razu zgłosić, jak działa.');
+      } else {
+        setNotice('Dziękujemy! Automat pojawi się na mapie, gdy potwierdzi go druga osoba.');
+      }
+      await load();
     } catch (e) {
       Alert.alert('Nie udało się', errorText(e));
     } finally {
@@ -177,10 +194,25 @@ export default function PointScreen() {
       {store && machines.length === 0 ? (
         <Card>
           <ThemedText type="smallBold">Nie znamy tu automatu</ThemedText>
-          <ThemedText type="small" themeColor="textSecondary">
-            Jesteś w sklepie i stoi tu automat do zwrotu opakowań? Dodaj go: po weryfikacji pojawi się na mapie.
-          </ThemedText>
-          <Button title="Dodaj automat w tym sklepie" variant="secondary" loading={busy === 'add'} onPress={addMachine} />
+          {pending?.mine ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Zgłosiłeś tu automat. Pojawi się na mapie, gdy potwierdzi go druga osoba.
+            </ThemedText>
+          ) : (
+            <>
+              <ThemedText type="small" themeColor="textSecondary">
+                {pending && pending.users > 0
+                  ? `${pending.users === 1 ? 'Ktoś już zgłosił' : `${pending.users} osoby zgłosiły`} tu automat. Jeśli go widzisz, potwierdź: wtedy od razu trafi na mapę.`
+                  : 'Jesteś w sklepie i stoi tu automat do zwrotu opakowań? Dodaj go: pojawi się na mapie, gdy potwierdzi go druga osoba.'}
+              </ThemedText>
+              <Button
+                title={pending && pending.users > 0 ? 'Potwierdź automat w tym sklepie' : 'Dodaj automat w tym sklepie'}
+                variant="secondary"
+                loading={busy === 'add'}
+                onPress={addMachine}
+              />
+            </>
+          )}
         </Card>
       ) : null}
 

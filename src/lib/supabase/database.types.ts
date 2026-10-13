@@ -297,6 +297,11 @@ isOneToOne: false
 "osm_import_next_region":
 { Args: Record<PropertyKey, never>; Returns: string
                            },
+"pending_machine_confirmations":
+{ Args: { "p_store_id": number }; Returns: {
+              "mine": boolean,"users": number
+            }[]
+                           },
 "recompute_machine_status":
 { Args: { "p_machine_id": number }; Returns: undefined
                            },
