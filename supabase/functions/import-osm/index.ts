@@ -51,7 +51,10 @@ async function importRegion(code: string) {
       body: new URLSearchParams({ data: buildOverpassQuery(region) }),
       signal: AbortSignal.timeout(190_000),
     });
-    if (!res.ok) throw new Error(`overpass_http_${res.status}`);
+    if (!res.ok) {
+      const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 300);
+      throw new Error(`overpass_http_${res.status}${detail ? `: ${detail}` : ''}`);
+    }
     const { stores, machines } = parseOverpass(await res.json());
     if (stores.length === 0 && machines.length === 0) throw new Error('overpass_empty_result');
 
