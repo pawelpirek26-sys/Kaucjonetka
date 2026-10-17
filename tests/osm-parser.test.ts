@@ -7,7 +7,6 @@ import {
   isRetryableOverpassStatus,
   isStore,
   overpassEndpoints,
-  overpassStatusUrl,
   parseOverpass,
 } from '../supabase/functions/_shared/osm';
 import { IMPORT_REGIONS, findRegion } from '../supabase/functions/_shared/regions';
@@ -101,11 +100,5 @@ describe('Overpass endpoints', () => {
     expect(isRetryableOverpassStatus(504)).toBe(true);
     expect(isRetryableOverpassStatus(406)).toBe(false);
     expect(isRetryableOverpassStatus(400)).toBe(false);
-  });
-
-  it('derives the status URL next to the interpreter', () => {
-    expect(overpassStatusUrl('https://overpass-api.de/api/interpreter')).toBe('https://overpass-api.de/api/status');
-    expect(overpassStatusUrl('http://127.0.0.1:8080/api/interpreter')).toBe('http://127.0.0.1:8080/api/status');
-    expect(overpassStatusUrl('http://host.docker.internal:54399')).toBe('http://host.docker.internal:54399/status');
   });
 });

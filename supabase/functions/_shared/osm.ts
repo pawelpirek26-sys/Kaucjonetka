@@ -49,8 +49,8 @@ const PACKAGING_TAGS: Record<Packaging, string[]> = {
   glass: ['recycling:glass_bottles', 'recycling:glass'],
 };
 
-// overpass-api.de rejects or drops some cloud egress IPs (406, TCP timeouts), so the
-// import falls back to a public mirror. OVERPASS_URL may list several, comma-separated.
+// Tried in order (a busy or failing instance falls through to the next one).
+// OVERPASS_URL may list several, comma-separated.
 export const DEFAULT_OVERPASS_URLS: readonly string[] = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.private.coffee/api/interpreter',
@@ -68,13 +68,6 @@ export function overpassEndpoints(value?: string | null): string[] {
 // the request or the caller's IP is refused, so move on to the next endpoint.
 export function isRetryableOverpassStatus(status: number): boolean {
   return status === 429 || status >= 500;
-}
-
-// Cheap reachability check served by every Overpass instance next to /interpreter.
-export function overpassStatusUrl(interpreterUrl: string): string {
-  return /interpreter\/?$/.test(interpreterUrl)
-    ? interpreterUrl.replace(/interpreter\/?$/, 'status')
-    : interpreterUrl.replace(/\/?$/, '/status');
 }
 
 export function buildOverpassQuery(region: ImportRegion, timeoutSeconds = 180): string {

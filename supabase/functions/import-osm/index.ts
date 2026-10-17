@@ -1,26 +1,26 @@
 // Weekly OSM import for one voivodeship: Overpass -> parse -> public.import_osm_region().
 // Called by pg_cron (public.osm_import_next_region) or manually. Authenticated with a
 // shared secret header because it is not meant to be called by app users.
+// The Overpass HTTP call itself goes out through the database (pg_net, see
+// public.osm_overpass_request): overpass-api.de refuses Edge Function egress IPs.
 //
 // POST /functions/v1/import-osm   x-import-secret: <OSM_IMPORT_SECRET>
 // body: { "region": "PL-MZ", "wait": false }
-import {
-  buildOverpassQuery,
-  isRetryableOverpassStatus,
-  overpassEndpoints,
-  overpassStatusUrl,
-  parseOverpass,
-} from '../_shared/osm.ts';
+import { buildOverpassQuery, isRetryableOverpassStatus, overpassEndpoints, parseOverpass } from '../_shared/osm.ts';
 import { findRegion, type ImportRegion } from '../_shared/regions.ts';
 
 const OVERPASS_URLS = overpassEndpoints(Deno.env.get('OVERPASS_URL'));
 const USER_AGENT = 'Kaucjomat/0.1 (OSM import; +https://github.com/pawelpirek26-sys/Kaucjonetka)';
-// The free plan stops a worker after 150 s of wall clock; keep room for the RPC.
+// The free plan stops a worker after 150 s of wall clock; keep room for the import RPC.
 const BUDGET_MS = 135_000;
-const STATUS_TIMEOUT_MS = 8_000;
 const MIN_QUERY_MS = 20_000;
+const POLL_MS = 2_000;
 const ATTEMPTS_PER_ENDPOINT = 2;
 const RETRY_DELAY_MS = 3_000;
+
+type NetResponse = { status: number | null; error: string | null; timed_out: boolean; body: string | null };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -59,39 +59,35 @@ class OverpassError extends Error {
   }
 }
 
-async function httpError(res: Response, step: string): Promise<OverpassError> {
-  const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 120);
-  return new OverpassError(
-    `${step}_http_${res.status}${detail ? `: ${detail}` : ''}`,
-    isRetryableOverpassStatus(res.status),
-  );
-}
-
+// One Overpass query sent by the database; polls until pg_net has the answer.
 async function queryEndpoint(url: string, region: ImportRegion, deadline: number) {
-  const status = await fetch(overpassStatusUrl(url), {
-    headers: { 'User-Agent': USER_AGENT },
-    signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
-  });
-  if (!status.ok) throw await httpError(status, 'status');
-  await status.body?.cancel();
-
   const left = deadline - Date.now();
   if (left < MIN_QUERY_MS) throw new OverpassError('no_time_left', false);
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
-    body: new URLSearchParams({ data: buildOverpassQuery(region, Math.floor(left / 1000) - 5) }),
-    signal: AbortSignal.timeout(left),
+  const requestId = await rpc<number>('osm_overpass_request', {
+    p_url: url,
+    p_query: buildOverpassQuery(region, Math.floor(left / 1000) - 10),
+    p_user_agent: USER_AGENT,
+    p_timeout_ms: left - 3_000,
   });
-  if (!res.ok) throw await httpError(res, 'query');
-  const rows = parseOverpass(await res.json());
+
+  let res: NetResponse | null = null;
+  while (!res) {
+    if (Date.now() > deadline) throw new OverpassError('no_response_in_time', false);
+    await sleep(POLL_MS);
+    res = await rpc<NetResponse | null>('osm_overpass_response', { p_request_id: requestId });
+  }
+
+  if (res.timed_out || res.error) throw new OverpassError(`net: ${res.error ?? 'timed_out'}`, true);
+  if (res.status !== 200) {
+    const detail = (res.body ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+    throw new OverpassError(`http_${res.status}${detail ? `: ${detail}` : ''}`, isRetryableOverpassStatus(res.status ?? 0));
+  }
+  const rows = parseOverpass(JSON.parse(res.body ?? 'null'));
   if (rows.stores.length === 0 && rows.machines.length === 0) throw new OverpassError('empty_result', true);
   return rows;
 }
 
-// Tries each Overpass endpoint in turn (busy or flaky ones twice). An endpoint that does
-// not answer /status quickly is skipped, so a dropped connection does not eat the whole
-// wall-clock budget.
+// Tries each Overpass endpoint in turn, busy or flaky ones twice.
 async function fetchOverpass(region: ImportRegion, deadline: number) {
   const errors: string[] = [];
   for (const url of OVERPASS_URLS) {
@@ -101,9 +97,9 @@ async function fetchOverpass(region: ImportRegion, deadline: number) {
         return { ...(await queryEndpoint(url, region, deadline)), endpoint: host };
       } catch (e) {
         errors.push(`${host}#${attempt}: ${e instanceof Error ? e.message : String(e)}`);
-        // network errors and timeouts (not OverpassError) are retried as well
+        // a failed RPC or unparsable body (not OverpassError) is retried as well
         if (e instanceof OverpassError && !e.retryable) break;
-        if (attempt < ATTEMPTS_PER_ENDPOINT) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+        if (attempt < ATTEMPTS_PER_ENDPOINT) await sleep(RETRY_DELAY_MS);
       }
     }
   }
