@@ -4,7 +4,13 @@
 //
 // POST /functions/v1/import-osm   x-import-secret: <OSM_IMPORT_SECRET>
 // body: { "region": "PL-MZ", "wait": false }
-import { buildOverpassQuery, overpassEndpoints, overpassStatusUrl, parseOverpass } from '../_shared/osm.ts';
+import {
+  buildOverpassQuery,
+  isRetryableOverpassStatus,
+  overpassEndpoints,
+  overpassStatusUrl,
+  parseOverpass,
+} from '../_shared/osm.ts';
 import { findRegion, type ImportRegion } from '../_shared/regions.ts';
 
 const OVERPASS_URLS = overpassEndpoints(Deno.env.get('OVERPASS_URL'));
@@ -13,6 +19,8 @@ const USER_AGENT = 'Kaucjomat/0.1 (OSM import; +https://github.com/pawelpirek26-
 const BUDGET_MS = 135_000;
 const STATUS_TIMEOUT_MS = 8_000;
 const MIN_QUERY_MS = 20_000;
+const ATTEMPTS_PER_ENDPOINT = 2;
+const RETRY_DELAY_MS = 3_000;
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -45,39 +53,58 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   return (text ? JSON.parse(text) : null) as T;
 }
 
-async function httpError(res: Response): Promise<Error> {
-  const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 200);
-  return new Error(`http_${res.status}${detail ? `: ${detail}` : ''}`);
+class OverpassError extends Error {
+  constructor(message: string, readonly retryable: boolean) {
+    super(message);
+  }
 }
 
-// Tries each Overpass endpoint in turn. An endpoint that does not answer /status quickly
-// is skipped, so a dropped connection does not eat the whole wall-clock budget.
+async function httpError(res: Response, step: string): Promise<OverpassError> {
+  const detail = (await res.text().catch(() => '')).replace(/\s+/g, ' ').trim().slice(0, 120);
+  return new OverpassError(
+    `${step}_http_${res.status}${detail ? `: ${detail}` : ''}`,
+    isRetryableOverpassStatus(res.status),
+  );
+}
+
+async function queryEndpoint(url: string, region: ImportRegion, deadline: number) {
+  const status = await fetch(overpassStatusUrl(url), {
+    headers: { 'User-Agent': USER_AGENT },
+    signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
+  });
+  if (!status.ok) throw await httpError(status, 'status');
+  await status.body?.cancel();
+
+  const left = deadline - Date.now();
+  if (left < MIN_QUERY_MS) throw new OverpassError('no_time_left', false);
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
+    body: new URLSearchParams({ data: buildOverpassQuery(region, Math.floor(left / 1000) - 5) }),
+    signal: AbortSignal.timeout(left),
+  });
+  if (!res.ok) throw await httpError(res, 'query');
+  const rows = parseOverpass(await res.json());
+  if (rows.stores.length === 0 && rows.machines.length === 0) throw new OverpassError('empty_result', true);
+  return rows;
+}
+
+// Tries each Overpass endpoint in turn (busy or flaky ones twice). An endpoint that does
+// not answer /status quickly is skipped, so a dropped connection does not eat the whole
+// wall-clock budget.
 async function fetchOverpass(region: ImportRegion, deadline: number) {
   const errors: string[] = [];
   for (const url of OVERPASS_URLS) {
     const host = new URL(url).host;
-    try {
-      const status = await fetch(overpassStatusUrl(url), {
-        headers: { 'User-Agent': USER_AGENT },
-        signal: AbortSignal.timeout(STATUS_TIMEOUT_MS),
-      });
-      await status.body?.cancel();
-      if (!status.ok) throw new Error(`status_http_${status.status}`);
-
-      const left = deadline - Date.now();
-      if (left < MIN_QUERY_MS) throw new Error('no_time_left');
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'User-Agent': USER_AGENT },
-        body: new URLSearchParams({ data: buildOverpassQuery(region, Math.floor(left / 1000) - 5) }),
-        signal: AbortSignal.timeout(left),
-      });
-      if (!res.ok) throw await httpError(res);
-      const rows = parseOverpass(await res.json());
-      if (rows.stores.length === 0 && rows.machines.length === 0) throw new Error('empty_result');
-      return { ...rows, endpoint: host };
-    } catch (e) {
-      errors.push(`${host}: ${e instanceof Error ? e.message : String(e)}`);
+    for (let attempt = 1; attempt <= ATTEMPTS_PER_ENDPOINT; attempt++) {
+      try {
+        return { ...(await queryEndpoint(url, region, deadline)), endpoint: host };
+      } catch (e) {
+        errors.push(`${host}#${attempt}: ${e instanceof Error ? e.message : String(e)}`);
+        // network errors and timeouts (not OverpassError) are retried as well
+        if (e instanceof OverpassError && !e.retryable) break;
+        if (attempt < ATTEMPTS_PER_ENDPOINT) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      }
     }
   }
   throw new Error(`overpass_failed: ${errors.join(' | ')}`);

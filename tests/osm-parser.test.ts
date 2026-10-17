@@ -4,6 +4,7 @@ import {
   acceptedPackaging,
   buildOverpassQuery,
   isMachine,
+  isRetryableOverpassStatus,
   isStore,
   overpassEndpoints,
   overpassStatusUrl,
@@ -92,6 +93,14 @@ describe('Overpass endpoints', () => {
     expect(
       overpassEndpoints(' https://a.example/api/interpreter, http://127.0.0.1:8080/api/interpreter,https://a.example/api/interpreter '),
     ).toEqual(['https://a.example/api/interpreter', 'http://127.0.0.1:8080/api/interpreter']);
+  });
+
+  it('retries busy or failing instances but not refused requests', () => {
+    expect(isRetryableOverpassStatus(429)).toBe(true);
+    expect(isRetryableOverpassStatus(500)).toBe(true);
+    expect(isRetryableOverpassStatus(504)).toBe(true);
+    expect(isRetryableOverpassStatus(406)).toBe(false);
+    expect(isRetryableOverpassStatus(400)).toBe(false);
   });
 
   it('derives the status URL next to the interpreter', () => {

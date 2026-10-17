@@ -64,6 +64,12 @@ export function overpassEndpoints(value?: string | null): string[] {
   return urls.length > 0 ? [...new Set(urls)] : [...DEFAULT_OVERPASS_URLS];
 }
 
+// Busy (429) and flaky (5xx) instances are worth one more try; 406 and other 4xx mean
+// the request or the caller's IP is refused, so move on to the next endpoint.
+export function isRetryableOverpassStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 // Cheap reachability check served by every Overpass instance next to /interpreter.
 export function overpassStatusUrl(interpreterUrl: string): string {
   return /interpreter\/?$/.test(interpreterUrl)
