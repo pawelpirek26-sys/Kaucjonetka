@@ -1,0 +1,56 @@
+# Installable Android APK for testing, built on GitHub's runners (Android SDK preinstalled)
+# instead of EAS: `expo prebuild` + `gradlew assembleRelease`. The release build is signed
+# with the template's debug keystore, so it installs on any phone but is not for the Play Store.
+#
+# Runs on manual dispatch, or on a push whose commit message contains "[apk]".
+# The APK is attached to the run as the "kaucjomat-apk" artifact.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[apk]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Publishable (client-side) values; override with repository variables if needed.
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tbthvchteugysbznnhez.supabase.co' }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_xO2FasWi-uKWpFdA8yXqSw_gbtM7H73' }}
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Generate the native Android project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build release APK
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi-v7a
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaucjomat-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 30
