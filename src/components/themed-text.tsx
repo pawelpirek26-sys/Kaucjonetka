@@ -47,23 +47,24 @@ const styles = StyleSheet.create({
     fontWeight: 500,
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontSize: 34,
+    fontWeight: 700,
+    lineHeight: 40,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: 600,
   },
   link: {
     lineHeight: 30,
     fontSize: 14,
+    textDecorationLine: 'underline',
   },
   linkPrimary: {
     lineHeight: 30,
     fontSize: 14,
-    color: '#3c87f7',
+    color: '#1F7A4D',
   },
   code: {
     fontFamily: Fonts.mono,
