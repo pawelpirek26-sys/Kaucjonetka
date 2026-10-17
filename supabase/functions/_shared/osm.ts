@@ -49,6 +49,28 @@ const PACKAGING_TAGS: Record<Packaging, string[]> = {
   glass: ['recycling:glass_bottles', 'recycling:glass'],
 };
 
+// overpass-api.de rejects or drops some cloud egress IPs (406, TCP timeouts), so the
+// import falls back to a public mirror. OVERPASS_URL may list several, comma-separated.
+export const DEFAULT_OVERPASS_URLS: readonly string[] = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
+export function overpassEndpoints(value?: string | null): string[] {
+  const urls = (value ?? '')
+    .split(/[\s,]+/)
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\/[^/\s]+/.test(u));
+  return urls.length > 0 ? [...new Set(urls)] : [...DEFAULT_OVERPASS_URLS];
+}
+
+// Cheap reachability check served by every Overpass instance next to /interpreter.
+export function overpassStatusUrl(interpreterUrl: string): string {
+  return /interpreter\/?$/.test(interpreterUrl)
+    ? interpreterUrl.replace(/interpreter\/?$/, 'status')
+    : interpreterUrl.replace(/\/?$/, '/status');
+}
+
 export function buildOverpassQuery(region: ImportRegion, timeoutSeconds = 180): string {
   const iso = `^(${region.code}|${region.legacyCode})$`;
   return [

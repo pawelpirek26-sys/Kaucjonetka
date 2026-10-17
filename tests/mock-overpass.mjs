@@ -12,6 +12,10 @@ createServer((req, res) => {
   req.on('end', () => {
     const query = new URLSearchParams(body).get('data') ?? '';
     console.log(`${new Date().toISOString()} ${req.method} ${req.url} ua=${req.headers['user-agent']}\n${query}`);
+    if (req.method === 'GET' && req.url?.endsWith('/status')) {
+      res.writeHead(200, { 'Content-Type': 'text/plain' }).end('Connected as: mock\n1 slots available now.\n');
+      return;
+    }
     if (req.method !== 'POST' || !query.includes('[out:json]')) {
       res.writeHead(400).end('bad request');
       return;
