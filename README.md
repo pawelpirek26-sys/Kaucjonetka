@@ -51,6 +51,8 @@ Import OSM end-to-end lokalnie (bez dostępu do Overpass): `node tests/mock-over
 
 ## Wdrożenie na nowy projekt Supabase
 
+Najszybciej: `npx supabase login`, potem `scripts/deploy-supabase.sh <project-ref>` (bez Dockera). Skrypt robi kroki 1–3 i wypisuje SQL do kroku 4. Ręcznie:
+
 1. Utwórz projekt (region `eu-central-1`) i powiąż go: `npx supabase link --project-ref <ref>`.
 2. Migracje: `npx supabase db push`.
 3. Funkcja importu i jej sekret:
