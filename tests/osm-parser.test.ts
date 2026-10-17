@@ -1,9 +1,12 @@
 import fixture from './fixtures/overpass-sample.json';
 import {
+  DEFAULT_OVERPASS_URLS,
   acceptedPackaging,
   buildOverpassQuery,
   isMachine,
+  isRetryableOverpassStatus,
   isStore,
+  overpassEndpoints,
   parseOverpass,
 } from '../supabase/functions/_shared/osm';
 import { IMPORT_REGIONS, findRegion } from '../supabase/functions/_shared/regions';
@@ -69,5 +72,33 @@ describe('regions and query', () => {
     expect(q).toContain('nwr["vending"="bottle_return"](area.region);');
     expect(q).toContain('nwr["recycling_type"="reverse_vending_machine"](area.region);');
     expect(q).toMatch(/out center tags qt;$/);
+  });
+
+  it('passes the remaining time budget to Overpass', () => {
+    expect(buildOverpassQuery(findRegion('PL-DS')!, 95)).toMatch(/^\[out:json\]\[timeout:95\];/);
+  });
+});
+
+describe('Overpass endpoints', () => {
+  it('falls back to overpass-api.de and a mirror when OVERPASS_URL is unset or invalid', () => {
+    expect(overpassEndpoints(undefined)).toEqual(DEFAULT_OVERPASS_URLS);
+    expect(overpassEndpoints('')).toEqual(DEFAULT_OVERPASS_URLS);
+    expect(overpassEndpoints('not a url')).toEqual(DEFAULT_OVERPASS_URLS);
+    expect(DEFAULT_OVERPASS_URLS[0]).toBe('https://overpass-api.de/api/interpreter');
+    expect(DEFAULT_OVERPASS_URLS.length).toBeGreaterThan(1);
+  });
+
+  it('reads a comma-separated list in order, without duplicates', () => {
+    expect(
+      overpassEndpoints(' https://a.example/api/interpreter, http://127.0.0.1:8080/api/interpreter,https://a.example/api/interpreter '),
+    ).toEqual(['https://a.example/api/interpreter', 'http://127.0.0.1:8080/api/interpreter']);
+  });
+
+  it('retries busy or failing instances but not refused requests', () => {
+    expect(isRetryableOverpassStatus(429)).toBe(true);
+    expect(isRetryableOverpassStatus(500)).toBe(true);
+    expect(isRetryableOverpassStatus(504)).toBe(true);
+    expect(isRetryableOverpassStatus(406)).toBe(false);
+    expect(isRetryableOverpassStatus(400)).toBe(false);
   });
 });

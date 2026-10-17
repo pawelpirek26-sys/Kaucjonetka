@@ -49,6 +49,27 @@ const PACKAGING_TAGS: Record<Packaging, string[]> = {
   glass: ['recycling:glass_bottles', 'recycling:glass'],
 };
 
+// Tried in order (a busy or failing instance falls through to the next one).
+// OVERPASS_URL may list several, comma-separated.
+export const DEFAULT_OVERPASS_URLS: readonly string[] = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
+
+export function overpassEndpoints(value?: string | null): string[] {
+  const urls = (value ?? '')
+    .split(/[\s,]+/)
+    .map((u) => u.trim())
+    .filter((u) => /^https?:\/\/[^/\s]+/.test(u));
+  return urls.length > 0 ? [...new Set(urls)] : [...DEFAULT_OVERPASS_URLS];
+}
+
+// Busy (429) and flaky (5xx) instances are worth one more try; 406 and other 4xx mean
+// the request or the caller's IP is refused, so move on to the next endpoint.
+export function isRetryableOverpassStatus(status: number): boolean {
+  return status === 429 || status >= 500;
+}
+
 export function buildOverpassQuery(region: ImportRegion, timeoutSeconds = 180): string {
   const iso = `^(${region.code}|${region.legacyCode})$`;
   return [
