@@ -47,7 +47,7 @@ Na fizycznym telefonie `EXPO_PUBLIC_SUPABASE_URL` musi wskazywać adres komputer
 | `npm run typecheck`, `npm run lint` | TypeScript, ESLint (eslint-config-expo) |
 | `npx expo export`, `npx expo prebuild --no-install` | bundle Metro i generowanie projektów natywnych |
 
-Import OSM end-to-end lokalnie (bez dostępu do Overpass): `node tests/mock-overpass.mjs tests/fixtures/overpass-sample.json`, a potem `curl -X POST http://127.0.0.1:54321/functions/v1/import-osm -H "x-import-secret: $OSM_IMPORT_SECRET" -d '{"region":"PL-MZ","wait":true}'`.
+Import OSM end-to-end lokalnie (bez dostępu do Overpass): `node tests/mock-overpass.mjs tests/fixtures/overpass-sample.json`, w `supabase/functions/.env` ustaw `OVERPASS_URL=http://host.docker.internal:54399/api/interpreter` (zapytanie wysyła kontener bazy przez pg_net), a potem `curl -X POST http://127.0.0.1:54321/functions/v1/import-osm -H "x-import-secret: $OSM_IMPORT_SECRET" -d '{"region":"PL-MZ","wait":true}'`.
 
 ## Wdrożenie na nowy projekt Supabase
 
@@ -79,7 +79,7 @@ Najszybciej: `npx supabase login`, potem `scripts/deploy-supabase.sh <project-re
 - **Geofencing tylko opt-in.** Wymaga ekranu wyjaśniającego, a aplikacja działa bez niego. Monitorujemy 20 najbliższych sklepów z aktywnymi kuponami (na iOS 19, bo system pozwala na 20 regionów, a jeden zajmuje region odświeżania). Wyjście z regionu odświeżania przelicza listę bez ciągłego śledzenia lokalizacji. **Dwell:** przy wejściu planowane jest powiadomienie za 60–120 s, a wyjście przed tym czasem je anuluje. Do tego cooldown 12 h na sklep, godziny ciszy i pytanie po wyjściu ze sklepu z automatem.
 - **Status automatu.** Liczy się najnowsze zgłoszenie, którego społeczność nie obaliła (1 + „nadal” − „już nie” > 0). Jest świeże przez 6 h od zgłoszenia lub ostatniego „nadal”, potem pinezka szarzeje. Kolory: `ok` zielony; `queue` i `rejects` żółty; `full`, `no_print` i `off` czerwony. Tabelę `machine_status` zapisują wyłącznie triggery.
 - **Zgłoszenia** przechodzą przez RPC `report_machine` i `vote_report`: promień 200 m, 10 zgłoszeń i 30 potwierdzeń na godzinę, blokada duplikatów i głosowania na własne zgłoszenie. Brakujący automat w znanym sklepie (`submit_point`) trafia na mapę automatycznie, gdy zgłoszą go 2 różne osoby w ciągu 30 dni. Pozostałe zgłoszenia, w tym sklepy, które już mają automat, czekają na moderację (`review_point_submission`, service role).
-- **Import OSM:** `shop=supermarket|convenience` z `brand` oraz `vending=bottle_return` lub `recycling_type=reverse_vending_machine`, dzielony na 16 województw. Automat jest przypisywany do najbliższego sklepu w promieniu 150 m (supermarkety mają 50 m przewagi). Punkty niewidziane przez 15 dni są ukrywane.
+- **Import OSM:** `shop=supermarket|convenience` z `brand` oraz `vending=bottle_return` lub `recycling_type=reverse_vending_machine`, dzielony na 16 województw. Zapytanie buduje i parsuje Edge Function, ale samo żądanie HTTP wysyła baza przez pg_net (`osm_overpass_request`/`osm_overpass_response`), bo overpass-api.de odrzuca IP Edge Functions. Serwery Overpass: `OVERPASS_URL` (lista po przecinku, domyślnie overpass-api.de, potem overpass.private.coffee), 429/5xx ponawiane raz. Automat jest przypisywany do najbliższego sklepu w promieniu 150 m (supermarkety mają 50 m przewagi). Punkty niewidziane przez 15 dni są ukrywane.
 
 ## Prywatność
 
