@@ -1,0 +1,51 @@
+name: Android APK
+
+# Builds an installable release APK (signed with the debug key) and attaches it to the run.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/beautiful-dirac-4cpz8i]
+
+concurrency:
+  group: android-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # Publishable values: they end up in every APK anyway. Repo variables override them.
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL || 'https://tbthvchteugysbznnhez.supabase.co' }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_xO2FasWi-uKWpFdA8yXqSw_gbtM7H73' }}
+      EXPO_PUBLIC_MAP_STYLE_URL: https://tiles.openfreemap.org/styles/liberty
+      NODE_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      - name: Generate native project
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaucjomat-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30
