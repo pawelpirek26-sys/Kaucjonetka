@@ -8,14 +8,17 @@ export type CouponDraft = {
   storeIdHint: number | null;
 };
 
-let draft: CouponDraft | null = null;
+// Keyed by coupon id and kept until saved, so a remounted form still finds its photo.
+const drafts = new Map<string, CouponDraft>();
 
 export function setDraft(d: CouponDraft): void {
-  draft = d;
+  drafts.set(d.id, d);
 }
 
-export function takeDraft(): CouponDraft | null {
-  const d = draft;
-  draft = null;
-  return d;
+export function getDraft(id: string | null | undefined): CouponDraft | null {
+  return (id && drafts.get(id)) || null;
+}
+
+export function clearDraft(id: string): void {
+  drafts.delete(id);
 }

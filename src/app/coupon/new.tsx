@@ -10,7 +10,7 @@ import { Button, Screen } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
 import { setDraft } from '@/lib/draft';
 import { COUPON_BARCODE_TYPES, scanCouponPhoto } from '@/lib/ocr/recognize';
-import { storeCouponPhoto } from '@/lib/photos';
+import { resolvePhotoUri, storeCouponPhoto } from '@/lib/photos';
 
 export default function NewCouponScreen() {
   const router = useRouter();
@@ -23,8 +23,9 @@ export default function NewCouponScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const manual = () => {
-    setDraft({ id: Crypto.randomUUID(), photoUri: null, scan: null, storeIdHint });
-    router.replace('/coupon/edit');
+    const id = Crypto.randomUUID();
+    setDraft({ id, photoUri: null, scan: null, storeIdHint });
+    router.replace({ pathname: '/coupon/edit', params: { draft: id } });
   };
 
   if (!permission) return <View style={{ flex: 1 }} />;
@@ -59,9 +60,9 @@ export default function NewCouponScreen() {
       const photo = await camera.current.takePictureAsync({ quality: 0.85 });
       const id = Crypto.randomUUID();
       const photoUri = await storeCouponPhoto(photo.uri, id);
-      const scan = await scanCouponPhoto(photoUri, liveBarcode.current);
+      const scan = await scanCouponPhoto(resolvePhotoUri(photoUri) ?? photo.uri, liveBarcode.current);
       setDraft({ id, photoUri, scan, storeIdHint });
-      router.replace('/coupon/edit');
+      router.replace({ pathname: '/coupon/edit', params: { draft: id } });
     } catch (e) {
       console.warn('[camera]', e);
       setError('Nie udało się zrobić zdjęcia. Spróbuj ponownie albo wpisz dane ręcznie.');

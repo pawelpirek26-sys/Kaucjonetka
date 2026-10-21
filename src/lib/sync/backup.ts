@@ -41,11 +41,10 @@ async function doSync(): Promise<SyncResult | null> {
   // ---- push
   const dirty = await dirtyCoupons(db);
   for (const c of dirty) {
-    if (c.photoUri && !c.photoPath && !c.deletedAt) {
+    const bytes = c.photoUri && !c.photoPath && !c.deletedAt ? await readPhotoBytes(c.photoUri) : null;
+    if (bytes) {
       const path = `${uid}/${c.id}.jpg`;
-      const { error } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, await readPhotoBytes(c.photoUri), { contentType: 'image/jpeg', upsert: true });
+      const { error } = await supabase.storage.from(BUCKET).upload(path, bytes, { contentType: 'image/jpeg', upsert: true });
       if (!error) {
         await setPhotoPath(db, c.id, path);
         c.photoPath = path;

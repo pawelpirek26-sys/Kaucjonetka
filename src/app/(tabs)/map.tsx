@@ -6,6 +6,7 @@ import {
   UserLocation,
   type CameraRef,
   type GeoJSONSourceRef,
+  type MapRef,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
@@ -29,7 +30,8 @@ import { openNavigation } from '@/lib/navigation';
 import { PACKAGING_LABELS, STATUS_COLORS, STATUS_LABELS, timeAgo } from '@/lib/status';
 import { supabase } from '@/lib/supabase/client';
 
-const MAP_STYLE = process.env.EXPO_PUBLIC_MAP_STYLE_URL ?? 'https://tiles.openfreemap.org/styles/liberty';
+// `||`: an empty value in .env must not leave the map without a style (grey map)
+const MAP_STYLE = process.env.EXPO_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 const EMPTY_IDS: number[] = [];
 const POLAND: { center: [number, number]; zoom: number } = { center: [19.4, 52.0], zoom: 5.3 };
 
@@ -39,6 +41,7 @@ export default function MapScreen() {
   const theme = useTheme();
   const router = useRouter();
   const revision = useWalletRevision();
+  const map = useRef<MapRef>(null);
   const camera = useRef<CameraRef>(null);
   const source = useRef<GeoJSONSourceRef>(null);
 
@@ -56,6 +59,8 @@ export default function MapScreen() {
   const [brands, setBrands] = useState<string[]>([]);
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [showBrands, setShowBrands] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+  const [mapKey, setMapKey] = useState(0);
 
   const view = useRef<Bounds | null>(null);
   const zoomRef = useRef(POLAND.zoom);
@@ -119,6 +124,22 @@ export default function MapScreen() {
     debounce.current = setTimeout(() => load(), 350);
   };
 
+  // onRegionDidChange is not guaranteed for the initial camera, so read the viewport once the style is in
+  const onMapLoaded = async () => {
+    setMapFailed(false);
+    const [bounds, z] = await Promise.all([map.current?.getBounds(), map.current?.getZoom()]).catch(() => [undefined, undefined]);
+    if (!bounds || z === undefined || view.current) return;
+    view.current = normaliseBounds(bounds);
+    zoomRef.current = z;
+    setZoom(z);
+    load();
+  };
+
+  const retryMap = () => {
+    setMapFailed(false);
+    setMapKey((k) => k + 1);
+  };
+
   const geojson = useMemo(() => toFeatureCollection(points, new Set(mine)), [points, mine]);
 
   const onPress = async (e: NativeSyntheticEvent<{ features: GeoJSON.Feature[] }>) => {
@@ -148,7 +169,19 @@ export default function MapScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Map style={StyleSheet.absoluteFill} mapStyle={MAP_STYLE} logo={false} attribution attributionPosition={{ bottom: 8, right: 8 }} onRegionDidChange={onRegionDidChange}>
+      <Map
+        key={mapKey}
+        ref={map}
+        style={StyleSheet.absoluteFill}
+        mapStyle={MAP_STYLE}
+        // SurfaceView stays blank inside the native tab container on Android
+        androidView="texture"
+        logo={false}
+        attribution
+        attributionPosition={{ bottom: 8, right: 8 }}
+        onRegionDidChange={onRegionDidChange}
+        onDidFinishLoadingMap={onMapLoaded}
+        onDidFailLoadingMap={() => setMapFailed(true)}>
         <Camera ref={camera} initialViewState={{ center: POLAND.center, zoom: POLAND.zoom }} />
         <UserLocation />
         <GeoJSONSource id="points" ref={source} data={geojson} cluster clusterRadius={45} clusterMaxZoom={14} onPress={onPress}>
@@ -217,6 +250,9 @@ export default function MapScreen() {
             </Row>
             {brands.length ? <Button title="Wyczyść" variant="ghost" onPress={() => setBrands([])} /> : null}
           </Card>
+        ) : null}
+        {mapFailed ? (
+          <Banner text="Nie udało się wczytać mapy. Sprawdź połączenie z internetem." action="Ponów" onAction={retryMap} />
         ) : null}
         {!supabase ? (
           <Banner text="Brak połączenia z serwerem: punkty są niedostępne." />

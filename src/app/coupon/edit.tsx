@@ -13,11 +13,12 @@ import { formatPlDate, parsePlDate } from '@/lib/dates';
 import { getCoupon, insertCoupon, updateCoupon, type CouponInput } from '@/lib/db/coupons';
 import { getDb } from '@/lib/db';
 import { getStore, recentStores, storeAddress, storeFromNearest, storeLabel, upsertStore, type CachedStore } from '@/lib/db/stores';
-import { takeDraft } from '@/lib/draft';
+import { clearDraft, getDraft } from '@/lib/draft';
 import { distanceMeters, formatDistance, type LatLon } from '@/lib/geo';
 import { getPosition } from '@/lib/location';
 import { groszeToInput, parseZlotyInput } from '@/lib/money';
 import { requestNotificationPermission } from '@/lib/notifications/setup';
+import { resolvePhotoUri } from '@/lib/photos';
 
 type StoreOption = CachedStore & { distance: number | null };
 
@@ -32,10 +33,10 @@ function suggestStore(options: StoreOption[], brand: string | null): StoreOption
 export default function EditCouponScreen() {
   const router = useRouter();
   const theme = useTheme();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ id?: string; draft?: string }>();
   const editingId = params.id ?? null;
-  const [draft] = useState(() => (editingId ? null : takeDraft()));
-  const couponId = editingId ?? draft?.id ?? null;
+  const [draft] = useState(() => (editingId ? null : getDraft(params.draft)));
+  const couponId = editingId ?? draft?.id ?? params.draft ?? null;
 
   const [amount, setAmount] = useState(draft?.scan?.amountGrosze ? groszeToInput(draft.scan.amountGrosze) : '');
   const [issued, setIssued] = useState(draft?.scan?.issuedOn ? formatPlDate(draft.scan.issuedOn) : '');
@@ -43,7 +44,12 @@ export default function EditCouponScreen() {
   const [barcode, setBarcode] = useState(draft?.scan?.barcode ?? '');
   const [barcodeType, setBarcodeType] = useState<string | null>(draft?.scan?.barcodeType ?? null);
   const [note, setNote] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(draft?.photoUri ?? null);
+  const [photoUri, setPhotoUri] = useState<string | null>(() => {
+    if (draft) return draft.photoUri;
+    // draft lost (e.g. app reloaded): the camera screen already stored the photo under the coupon id
+    const fallback = !editingId && params.draft ? `${params.draft}.jpg` : null;
+    return resolvePhotoUri(fallback) ? fallback : null;
+  });
   const [store, setStore] = useState<CachedStore | null>(null);
   const [options, setOptions] = useState<StoreOption[]>([]);
   const [loadingStores, setLoadingStores] = useState(true);
@@ -140,7 +146,10 @@ export default function EditCouponScreen() {
         ocrText: draft?.scan?.text ?? null,
       };
       if (editingId) await updateCoupon(db, editingId, input);
-      else await insertCoupon(db, couponId, input);
+      else {
+        await insertCoupon(db, couponId, input);
+        clearDraft(couponId);
+      }
       if (input.expiresOn) await requestNotificationPermission().catch(() => false);
       await afterWalletChange();
       if (editingId) router.back();
@@ -152,6 +161,7 @@ export default function EditCouponScreen() {
     }
   };
 
+  const photo = resolvePhotoUri(photoUri);
   const scanFound = draft?.scan && (draft.scan.amountGrosze || draft.scan.expiresOn || draft.scan.barcode);
 
   return (
@@ -165,7 +175,7 @@ export default function EditCouponScreen() {
         </Card>
       ) : null}
 
-      {photoUri ? <Image source={{ uri: photoUri }} style={styles.photo} contentFit="contain" accessibilityLabel="Zdjęcie kuponu" /> : null}
+      {photo ? <Image source={{ uri: photo }} style={styles.photo} contentFit="contain" accessibilityLabel="Zdjęcie kuponu" /> : null}
 
       <Field
         label="Kwota (zł)"

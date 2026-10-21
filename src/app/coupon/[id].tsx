@@ -14,7 +14,7 @@ import { getDb } from '@/lib/db';
 import { storeAddress, storeLabel } from '@/lib/db/stores';
 import { useWalletRevision } from '@/lib/events';
 import { formatGrosze } from '@/lib/money';
-import { deleteCouponPhoto } from '@/lib/photos';
+import { deleteCouponPhoto, resolvePhotoUri } from '@/lib/photos';
 import { remotePhotoUrl } from '@/lib/sync/backup';
 
 const STATUS_LABEL: Record<CouponStatus, string> = { active: 'Aktywny', redeemed: 'Wykorzystany', expired: 'Wygasły' };
@@ -26,7 +26,7 @@ export default function CouponScreen() {
   const revision = useWalletRevision();
   const { data } = useQuery(async () => {
     const c = await getCoupon(await getDb(), id);
-    const photo = c?.photoUri ?? (c?.photoPath ? await remotePhotoUrl(c.photoPath) : null);
+    const photo = resolvePhotoUri(c?.photoUri ?? null) ?? (c?.photoPath ? await remotePhotoUrl(c.photoPath) : null);
     return { coupon: c, photo };
   }, [id, revision]);
   const coupon = data?.coupon;
