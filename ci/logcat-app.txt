@@ -1,0 +1,35 @@
+10-22 03:42:12.023  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.geojsonsource.MLRNGeoJSONSourceManager
+10-22 03:42:12.026  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.markerview.MLRNMarkerViewManager
+10-22 03:42:12.027  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.images.MLRNImagesManager
+10-22 03:42:12.031  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.layer.MLRNLayerManager
+10-22 03:42:12.033  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.location.MLRNNativeUserLocationManager
+10-22 03:42:12.034  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.rastersource.MLRNRasterSourceManager
+10-22 03:42:12.038  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNAndroidTextureMapViewManager
+10-22 03:42:12.038  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNMapViewManager$MapShadowNode
+10-22 03:42:12.039  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.imagesource.MLRNImageSourceManager
+10-22 03:42:12.041  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.vectorsource.MLRNVectorSourceManager
+10-22 03:42:12.045  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.callout.MLRNCalloutManager
+10-22 03:42:12.046  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.camera.MLRNCameraManager
+10-22 03:42:12.046  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNMapViewManager
+10-22 03:42:12.046  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.rasterdemsource.MLRNRasterDEMSourceManager
+10-22 03:42:12.046  4023  4054 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.pointannotation.MLRNPointAnnotationManager
+10-22 03:42:12.200  4023  4054 I ReactNativeJS: Running "main"
+10-22 03:42:12.501  4023  4023 D MLRNOfflineModule: No packs need migration
+10-22 03:42:14.303  4023  4054 W ReactNativeJS: MapLibre Native [WARN] [Mbgl] {Worker 2}[General]: Invalid geometry in line layer
+10-22 03:42:44.874  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.geojsonsource.MLRNGeoJSONSourceManager
+10-22 03:42:44.874  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.markerview.MLRNMarkerViewManager
+10-22 03:42:44.875  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.images.MLRNImagesManager
+10-22 03:42:44.876  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.layer.MLRNLayerManager
+10-22 03:42:44.876  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.location.MLRNNativeUserLocationManager
+10-22 03:42:44.876  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.rastersource.MLRNRasterSourceManager
+10-22 03:42:44.882  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNAndroidTextureMapViewManager
+10-22 03:42:44.882  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNMapViewManager$MapShadowNode
+10-22 03:42:44.883  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.imagesource.MLRNImageSourceManager
+10-22 03:42:44.883  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.vectorsource.MLRNVectorSourceManager
+10-22 03:42:44.887  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.callout.MLRNCalloutManager
+10-22 03:42:44.889  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.camera.MLRNCameraManager
+10-22 03:42:44.890  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.mapview.MLRNMapViewManager
+10-22 03:42:44.891  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.sources.tilesources.rasterdemsource.MLRNRasterDEMSourceManager
+10-22 03:42:44.891  5685  5711 W unknown:ViewManagerPropertyUpdater: Could not find generated setter for class org.maplibre.reactnative.components.annotations.pointannotation.MLRNPointAnnotationManager
+10-22 03:42:45.030  5685  5711 I ReactNativeJS: Running "main"
+10-22 03:42:45.235  5685  5685 D MLRNOfflineModule: No packs need migration
