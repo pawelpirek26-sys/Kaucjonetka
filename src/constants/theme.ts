@@ -2,30 +2,34 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    textSecondary: '#5F6B73',
-    background: '#F5F7F6',
+    text: '#0E1512',
+    textSecondary: '#5E6B66',
+    background: '#F2F5F3',
     card: '#FFFFFF',
-    backgroundElement: '#ECEFEE',
-    backgroundSelected: '#DDE3E0',
-    border: '#D9DFDC',
-    tint: '#1F7A4D',
+    backgroundElement: '#E7EDEA',
+    backgroundSelected: '#D5EADF',
+    border: '#E0E7E3',
+    tint: '#0F8A55',
+    tintSoft: '#E1F3EA',
     onTint: '#FFFFFF',
-    danger: '#C23B3B',
-    warning: '#B7791F',
+    danger: '#D93C3C',
+    warning: '#C27C0E',
+    shadow: '#0B2A1C',
   },
   dark: {
-    text: '#ECEDEE',
-    textSecondary: '#A3ADB3',
-    background: '#0F1412',
-    card: '#1A201D',
-    backgroundElement: '#232A27',
-    backgroundSelected: '#2E3733',
-    border: '#2F3833',
-    tint: '#4CC38A',
-    onTint: '#08130D',
-    danger: '#F07171',
-    warning: '#E8B04B',
+    text: '#EEF2F0',
+    textSecondary: '#9AA8A2',
+    background: '#0B0F0D',
+    card: '#151B18',
+    backgroundElement: '#1F2723',
+    backgroundSelected: '#1F3A2D',
+    border: '#27312C',
+    tint: '#3DD68C',
+    tintSoft: '#16301F',
+    onTint: '#06130C',
+    danger: '#FF7A7A',
+    warning: '#F2B84B',
+    shadow: '#000000',
   },
 } as const;
 
@@ -46,4 +50,4 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const Radius = { small: 8, medium: 12, large: 20, pill: 999 } as const;
+export const Radius = { small: 10, medium: 14, large: 22, pill: 999 } as const;

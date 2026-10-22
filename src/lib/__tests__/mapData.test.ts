@@ -1,4 +1,5 @@
 import type { MapPoint } from '@/lib/api';
+import { brandBadge } from '@/lib/brands';
 import { containsBounds, normaliseBounds, padBounds, toFeatureCollection } from '@/lib/mapData';
 
 const point = (p: Partial<MapPoint>): MapPoint => ({
@@ -22,5 +23,16 @@ describe('map data', () => {
     expect(containsBounds(fetched, [21.02, 52.02, 21.12, 52.12])).toBe(true);
     expect(containsBounds(fetched, [21.2, 52.0, 21.3, 52.1])).toBe(false);
     expect(normaliseBounds([21.1, 52.1, 21, 52])).toEqual(view);
+  });
+
+  it('gives stores a brand badge ringed with the machine status colour', () => {
+    const [store, machine] = toFeatureCollection(
+      [point({ brand: 'Carrefour Express', status: 'broken' }), point({ kind: 'machine', store_id: null as unknown as number, machine_id: 5 })],
+      new Set(),
+    ).features.map((f) => f.properties);
+    expect([store.badge, store.badgeColor, store.statusColor]).toEqual(['C', '#2D9B3A', '#D64545']);
+    expect(machine.badge).toBe('A');
+    expect(brandBadge('Żabka', null).label).toBe('Ż');
+    expect(brandBadge(null, 'Sklep u Ani')).toMatchObject({ label: 'S', color: '#5B6B73' });
   });
 });

@@ -35,7 +35,7 @@ export function Screen({ children, scroll = true, edges = ['bottom'] }: { childr
 
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }, style]}>{children}</View>;
+  return <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.shadow }, style]}>{children}</View>;
 }
 
 type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
@@ -80,11 +80,16 @@ export function Chip({ label, selected, onPress, color }: { label: string; selec
       accessibilityRole={onPress ? 'button' : 'text'}
       accessibilityState={{ selected }}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         styles.chip,
-        { borderColor: color ?? theme.border, backgroundColor: selected ? (color ?? theme.tint) : theme.card },
+        {
+          borderColor: selected ? (color ?? theme.tint) : theme.border,
+          backgroundColor: selected ? (color ?? theme.tint) : theme.card,
+          shadowColor: theme.shadow,
+          opacity: pressed ? 0.85 : 1,
+        },
       ]}>
-      <ThemedText type="small" style={{ color: selected ? '#FFFFFF' : (color ?? theme.text) }}>
+      <ThemedText type="smallBold" style={{ color: selected ? (color ? '#FFFFFF' : theme.onTint) : (color ?? theme.text) }}>
         {label}
       </ThemedText>
     </Pressable>
@@ -166,11 +171,29 @@ export function EmptyState({ title, description, children }: { title: string; de
 
 const styles = StyleSheet.create({
   screenContent: { padding: Spacing.three, gap: Spacing.three, paddingBottom: Spacing.six },
-  card: { borderRadius: Radius.medium, borderWidth: StyleSheet.hairlineWidth, padding: Spacing.three, gap: Spacing.two },
-  button: { minHeight: 48, borderRadius: Radius.medium, paddingHorizontal: Spacing.three, alignItems: 'center', justifyContent: 'center' },
-  chip: { borderRadius: Radius.pill, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6 },
+  card: {
+    borderRadius: Radius.large,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: Spacing.three,
+    gap: Spacing.two,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  button: { minHeight: 52, borderRadius: Radius.pill, paddingHorizontal: Spacing.four, alignItems: 'center', justifyContent: 'center' },
+  chip: {
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
   row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
   sectionTitle: { textTransform: 'uppercase', letterSpacing: 0.5, marginTop: Spacing.two },
-  input: { borderWidth: 1, borderRadius: Radius.small, paddingHorizontal: 12, paddingVertical: 10, fontSize: 16 },
+  input: { borderWidth: 1, borderRadius: Radius.medium, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
 });

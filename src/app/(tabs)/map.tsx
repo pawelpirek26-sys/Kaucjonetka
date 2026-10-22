@@ -3,16 +3,16 @@ import {
   GeoJSONSource,
   Layer,
   Map,
-  UserLocation,
+  Marker,
   type CameraRef,
   type GeoJSONSourceRef,
   type MapRef,
   type ViewStateChangeEvent,
 } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View, type NativeSyntheticEvent } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -31,7 +31,8 @@ import { PACKAGING_LABELS, STATUS_COLORS, STATUS_LABELS, timeAgo } from '@/lib/s
 import { supabase } from '@/lib/supabase/client';
 
 // `||`: an empty value in .env must not leave the map without a style (grey map)
-const MAP_STYLE = process.env.EXPO_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
+const MAP_STYLE_LIGHT = process.env.EXPO_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
+const MAP_STYLE_DARK = process.env.EXPO_PUBLIC_MAP_STYLE_DARK_URL || 'https://tiles.openfreemap.org/styles/dark';
 const EMPTY_IDS: number[] = [];
 const POLAND: { center: [number, number]; zoom: number } = { center: [19.4, 52.0], zoom: 5.3 };
 
@@ -39,7 +40,16 @@ type Selected = PointProperties & { lat: number; lon: number };
 
 export default function MapScreen() {
   const theme = useTheme();
+  const dark = useColorScheme() === 'dark';
   const router = useRouter();
+  // optional start position, e.g. kaucjomat://map?lat=52.23&lon=21.01&zoom=14
+  const params = useLocalSearchParams<{ lat?: string; lon?: string; zoom?: string }>();
+  const [start] = useState(() => {
+    const lat = Number(params.lat);
+    const lon = Number(params.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || !params.lat || !params.lon) return null;
+    return { center: [lon, lat] as [number, number], zoom: Number(params.zoom) || 14 };
+  });
   const revision = useWalletRevision();
   const map = useRef<MapRef>(null);
   const camera = useRef<CameraRef>(null);
@@ -53,6 +63,7 @@ export default function MapScreen() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Selected | null>(null);
   const [me, setMe] = useState<LatLon | null>(null);
+  const [canLocate, setCanLocate] = useState(false);
   const [onlyWorking, setOnlyWorking] = useState(false);
   const [onlyMine, setOnlyMine] = useState(false);
   const [accepts, setAccepts] = useState<Packaging[]>([]);
@@ -78,18 +89,36 @@ export default function MapScreen() {
   );
   const filtersKey = JSON.stringify(filters);
 
+  // follow the user's position while the map is open (drives the "you are here" marker)
+  useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+    let alive = true;
+    if (!canLocate) return;
+    (async () => {
+      sub = await Location.watchPositionAsync({ accuracy: Location.Accuracy.Balanced, distanceInterval: 10 }, (pos) =>
+        setMe({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      ).catch(() => null);
+      if (!alive) sub?.remove();
+    })();
+    return () => {
+      alive = false;
+      sub?.remove();
+    };
+  }, [canLocate]);
+
   useEffect(() => {
     if (supabase) topBrands(20).then((rows) => setBrandOptions(rows.map((r) => r.brand))).catch(() => undefined);
     Location.getForegroundPermissionsAsync().then(async (p) => {
       if (!p.granted) return;
+      setCanLocate(true);
       const pos = await Location.getLastKnownPositionAsync().catch(() => null);
       if (pos) {
         const here = { lat: pos.coords.latitude, lon: pos.coords.longitude };
         setMe(here);
-        camera.current?.jumpTo({ center: [here.lon, here.lat], zoom: 13 });
+        if (!start) camera.current?.jumpTo({ center: [here.lon, here.lat], zoom: 13 });
       }
     });
-  }, []);
+  }, [start]); // `start` never changes after mount
 
   const load = useCallback(
     async (force = false) => {
@@ -100,6 +129,7 @@ export default function MapScreen() {
       setLoading(true);
       try {
         const rows = await mapPoints(padded, filters);
+        console.log('[map] points loaded:', rows.length);
         fetched.current = { bounds: padded, key: filtersKey };
         setPoints(rows);
         setError(null);
@@ -158,6 +188,7 @@ export default function MapScreen() {
   const centerOnMe = async () => {
     const perm = await Location.requestForegroundPermissionsAsync();
     if (!perm.granted) return;
+    setCanLocate(true);
     const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }).catch(() => null);
     if (!pos) return;
     const here = { lat: pos.coords.latitude, lon: pos.coords.longitude };
@@ -173,7 +204,7 @@ export default function MapScreen() {
         key={mapKey}
         ref={map}
         style={StyleSheet.absoluteFill}
-        mapStyle={MAP_STYLE}
+        mapStyle={dark ? MAP_STYLE_DARK : MAP_STYLE_LIGHT}
         // SurfaceView stays blank inside the native tab container on Android
         androidView="texture"
         logo={false}
@@ -182,53 +213,73 @@ export default function MapScreen() {
         onRegionDidChange={onRegionDidChange}
         onDidFinishLoadingMap={onMapLoaded}
         onDidFailLoadingMap={() => setMapFailed(true)}>
-        <Camera ref={camera} initialViewState={{ center: POLAND.center, zoom: POLAND.zoom }} />
-        <UserLocation />
-        <GeoJSONSource id="points" ref={source} data={geojson} cluster clusterRadius={45} clusterMaxZoom={14} onPress={onPress}>
+        <Camera ref={camera} initialViewState={start ?? { center: POLAND.center, zoom: POLAND.zoom }} />
+        <GeoJSONSource id="kj-points" ref={source} data={geojson} cluster clusterRadius={45} clusterMaxZoom={13} onPress={onPress}>
           <Layer
-            id="clusters"
+            id="kj-clusters"
             type="circle"
             filter={['has', 'point_count']}
             paint={{
-              'circle-color': '#1F7A4D',
-              'circle-opacity': 0.85,
-              'circle-radius': ['step', ['get', 'point_count'], 16, 20, 20, 100, 26],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#FFFFFF',
+              'circle-color': theme.tint,
+              'circle-radius': ['step', ['get', 'point_count'], 18, 20, 22, 100, 28],
+              'circle-stroke-width': 3,
+              'circle-stroke-color': dark ? '#0B0F0D' : '#FFFFFF',
             }}
           />
           <Layer
-            id="cluster-count"
+            id="kj-cluster-count"
             type="symbol"
             filter={['has', 'point_count']}
-            layout={{ 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 13, 'text-font': ['Noto Sans Bold'] }}
-            paint={{ 'text-color': '#FFFFFF' }}
+            layout={{
+              'text-field': ['get', 'point_count_abbreviated'],
+              'text-size': 14,
+              'text-font': ['Noto Sans Bold'],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            }}
+            paint={{ 'text-color': theme.onTint }}
           />
           <Layer
-            id="points-mine"
+            id="kj-mine-halo"
             type="circle"
             filter={['all', ['!', ['has', 'point_count']], ['==', ['get', 'mine'], true]]}
-            paint={{ 'circle-radius': 14, 'circle-color': '#1F7A4D', 'circle-opacity': 0.25 }}
+            paint={{ 'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 16, 16, 26], 'circle-color': theme.tint, 'circle-opacity': 0.3 }}
           />
           <Layer
-            id="points"
+            id="kj-badges"
             type="circle"
             filter={['!', ['has', 'point_count']]}
             paint={{
-              'circle-radius': ['case', ['>', ['get', 'machines'], 0], 8, 6],
-              'circle-color': [
-                'match',
-                ['get', 'status'],
-                'ok', STATUS_COLORS.ok,
-                'warning', STATUS_COLORS.warning,
-                'broken', STATUS_COLORS.broken,
-                STATUS_COLORS.unknown,
-              ],
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#FFFFFF',
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 8, 14, 13, 17, 17],
+              'circle-color': ['get', 'badgeColor'],
+              'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 3.5],
+              'circle-stroke-color': ['get', 'statusColor'],
             }}
           />
+          <Layer
+            id="kj-badge-labels"
+            type="symbol"
+            minzoom={12}
+            filter={['!', ['has', 'point_count']]}
+            layout={{
+              'text-field': ['get', 'badge'],
+              'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 17, 15],
+              'text-font': ['Noto Sans Bold'],
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            }}
+            paint={{ 'text-color': ['get', 'badgeText'] }}
+          />
         </GeoJSONSource>
+        {me ? (
+          <Marker id="me" lngLat={[me.lon, me.lat]} anchor="center">
+            <View style={styles.meOuter} accessibilityLabel="Twoja pozycja">
+              <View style={[styles.meInner, { borderColor: dark ? '#0B0F0D' : '#FFFFFF' }]}>
+                <Text style={styles.meIcon}>🚶</Text>
+              </View>
+            </View>
+          </Marker>
+        ) : null}
       </Map>
 
       <SafeAreaView edges={['top']} style={styles.top} pointerEvents="box-none">
@@ -265,18 +316,20 @@ export default function MapScreen() {
         ) : null}
       </SafeAreaView>
 
-      <Pressable accessibilityRole="button" accessibilityLabel="Pokaż moją lokalizację" onPress={centerOnMe} style={[styles.locate, { backgroundColor: theme.card }]}>
-        <ThemedText style={{ fontSize: 20 }}>◎</ThemedText>
+      <Pressable accessibilityRole="button" accessibilityLabel="Pokaż moją lokalizację" onPress={centerOnMe} style={({ pressed }) => [styles.locate, { backgroundColor: theme.card, shadowColor: theme.shadow, opacity: pressed ? 0.85 : 1 }]}>
+        <View style={[styles.locateRing, { borderColor: theme.tint }]}>
+          <View style={[styles.locateDot, { backgroundColor: theme.tint }]} />
+        </View>
       </Pressable>
 
-      <Pressable accessibilityRole="link" onPress={() => Linking.openURL('https://www.openstreetmap.org/copyright')} style={styles.osm}>
-        <ThemedText type="small" style={styles.osmText}>
+      <Pressable accessibilityRole="link" onPress={() => Linking.openURL('https://www.openstreetmap.org/copyright')} style={[styles.osm, { backgroundColor: dark ? 'rgba(21,27,24,0.85)' : 'rgba(255,255,255,0.85)' }]}>
+        <ThemedText type="small" themeColor="textSecondary" style={styles.osmText}>
           Dane: © OpenStreetMap
         </ThemedText>
       </Pressable>
 
       {selected ? (
-        <Card style={styles.sheet}>
+        <Card style={[styles.sheet, { shadowColor: theme.shadow }]}>
           <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <View style={{ flex: 1, gap: 2 }}>
               <ThemedText type="subtitle">{selected.name}</ThemedText>
@@ -311,7 +364,7 @@ export default function MapScreen() {
 function Banner({ text, action, onAction }: { text: string; action?: string; onAction?: () => void }) {
   const theme = useTheme();
   return (
-    <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View style={[styles.banner, { backgroundColor: theme.card, borderColor: theme.border, shadowColor: theme.shadow }]}>
       <ThemedText type="small" style={{ flex: 1 }}>
         {text}
       </ThemedText>
@@ -327,28 +380,50 @@ const styles = StyleSheet.create({
   banner: {
     marginHorizontal: Spacing.three,
     marginTop: Spacing.one,
-    padding: Spacing.two,
-    borderRadius: Radius.medium,
+    paddingVertical: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    borderRadius: Radius.large,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
+    elevation: 3,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   locate: {
     position: 'absolute',
     right: Spacing.three,
     bottom: 140,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 3,
-    shadowColor: '#000',
+    elevation: 5,
     shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  locateRing: { width: 24, height: 24, borderRadius: 12, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
+  locateDot: { width: 8, height: 8, borderRadius: 4 },
+  meOuter: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(37,128,255,0.22)', alignItems: 'center', justifyContent: 'center' },
+  meInner: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#2580FF',
+    borderWidth: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
-  osm: { position: 'absolute', left: 8, bottom: 8, backgroundColor: 'rgba(255,255,255,0.8)', borderRadius: 4, paddingHorizontal: 4 },
-  osmText: { color: '#333', fontSize: 11 },
-  sheet: { position: 'absolute', left: Spacing.three, right: Spacing.three, bottom: Spacing.three, elevation: 4 },
+  meIcon: { fontSize: 20, lineHeight: 24 },
+  osm: { position: 'absolute', left: 8, bottom: 8, borderRadius: Radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
+  osmText: { fontSize: 11 },
+  sheet: { position: 'absolute', left: Spacing.three, right: Spacing.three, bottom: Spacing.three, elevation: 8, shadowOpacity: 0.18, shadowRadius: 16 },
 });

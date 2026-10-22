@@ -1,5 +1,7 @@
 // Pure helpers for the map screen.
 import type { MapPoint, StatusLevel } from '@/lib/api';
+import { brandBadge } from '@/lib/brands';
+import { STATUS_COLORS } from '@/lib/status';
 
 export type Bounds = [west: number, south: number, east: number, north: number];
 
@@ -17,6 +19,11 @@ export type PointProperties = {
   machines: number;
   mine: boolean;
   reportedAt: string | null;
+  // precomputed paint values (simpler and cheaper than style expressions)
+  statusColor: string;
+  badge: string;
+  badgeColor: string;
+  badgeText: string;
 };
 
 export type PointFeature = GeoJSON.Feature<GeoJSON.Point, PointProperties>;
@@ -30,6 +37,7 @@ export function toFeatureCollection(points: MapPoint[], mineStoreIds: ReadonlySe
     type: 'FeatureCollection',
     features: points.map((p) => {
       const key = pointKey(p);
+      const badge = p.kind === 'store' ? brandBadge(p.brand ?? null, p.name ?? null) : null;
       return {
         type: 'Feature',
         id: key,
@@ -45,6 +53,10 @@ export function toFeatureCollection(points: MapPoint[], mineStoreIds: ReadonlySe
           machines: p.machine_count,
           mine: p.store_id !== null && mineStoreIds.has(p.store_id),
           reportedAt: p.reported_at ?? null,
+          statusColor: STATUS_COLORS[p.status] ?? STATUS_COLORS.unknown,
+          badge: badge ? badge.label : 'A',
+          badgeColor: badge ? badge.color : (STATUS_COLORS[p.status] ?? STATUS_COLORS.unknown),
+          badgeText: badge ? badge.textColor : '#FFFFFF',
         },
       };
     }),

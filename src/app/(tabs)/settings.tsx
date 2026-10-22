@@ -5,6 +5,7 @@ import { Alert, Linking, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Button, Card, Chip, Row, Screen, SectionTitle, SwitchRow } from '@/components/ui';
 import { Spacing } from '@/constants/theme';
+import { getThemePreference, setThemePreference, THEME_LABELS, type ThemePreference } from '@/lib/appearance';
 import { signOut, useSession } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 import { DWELL_OPTIONS_S, getSettings, RADIUS_OPTIONS_M, updateSettings, type Settings } from '@/lib/db/settings';
@@ -37,6 +38,7 @@ export default function SettingsScreen() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [geoStatus, setGeoStatus] = useState<GeofenceStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [themePref, setThemePref] = useState<ThemePreference>(getThemePreference);
 
   const reload = useCallback(async () => {
     const db = await getDb();
@@ -74,6 +76,27 @@ export default function SettingsScreen() {
   return (
     <Screen edges={['top', 'bottom']}>
       <ThemedText type="title">Ustawienia</ThemedText>
+
+      <SectionTitle>Wygląd</SectionTitle>
+      <Card>
+        <ThemedText type="smallBold">Motyw</ThemedText>
+        <Row style={{ flexWrap: 'wrap' }}>
+          {(Object.keys(THEME_LABELS) as ThemePreference[]).map((p) => (
+            <Chip
+              key={p}
+              label={THEME_LABELS[p]}
+              selected={themePref === p}
+              onPress={() => {
+                setThemePreference(p);
+                setThemePref(p);
+              }}
+            />
+          ))}
+        </Row>
+        <ThemedText type="small" themeColor="textSecondary">
+          Systemowy zmienia się razem z ustawieniem telefonu. Mapa też przechodzi w tryb ciemny.
+        </ThemedText>
+      </Card>
 
       <SectionTitle>Przypomnienia przy sklepie</SectionTitle>
       <Card>

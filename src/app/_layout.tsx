@@ -6,8 +6,12 @@ import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, type Href } f
 import { useEffect } from 'react';
 import { AppState, useColorScheme } from 'react-native';
 
+import { applyThemePreference } from '@/lib/appearance';
 import { onAppActive } from '@/lib/bootstrap';
 import { hrefForResponse } from '@/lib/notifications/schedule';
+
+// before the first render, so screens never flash in the wrong theme
+applyThemePreference();
 
 function useNotificationNavigation() {
   const router = useRouter();
