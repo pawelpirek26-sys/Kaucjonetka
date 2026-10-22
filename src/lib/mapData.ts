@@ -19,11 +19,10 @@ export type PointProperties = {
   machines: number;
   mine: boolean;
   reportedAt: string | null;
-  // precomputed paint values (simpler and cheaper than style expressions)
+  // precomputed style values (simpler and cheaper than style expressions)
   statusColor: string;
-  badge: string;
-  badgeColor: string;
-  badgeText: string;
+  /** image name registered from MAP_ICONS */
+  icon: string;
 };
 
 export type PointFeature = GeoJSON.Feature<GeoJSON.Point, PointProperties>;
@@ -54,9 +53,7 @@ export function toFeatureCollection(points: MapPoint[], mineStoreIds: ReadonlySe
           mine: p.store_id !== null && mineStoreIds.has(p.store_id),
           reportedAt: p.reported_at ?? null,
           statusColor: STATUS_COLORS[p.status] ?? STATUS_COLORS.unknown,
-          badge: badge ? badge.label : 'A',
-          badgeColor: badge ? badge.color : (STATUS_COLORS[p.status] ?? STATUS_COLORS.unknown),
-          badgeText: badge ? badge.textColor : '#FFFFFF',
+          icon: badge ? badge.icon : 'machine',
         },
       };
     }),

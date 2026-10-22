@@ -25,14 +25,14 @@ describe('map data', () => {
     expect(normaliseBounds([21.1, 52.1, 21, 52])).toEqual(view);
   });
 
-  it('gives stores a brand badge ringed with the machine status colour', () => {
+  it('gives stores a brand icon ringed with the machine status colour', () => {
     const [store, machine] = toFeatureCollection(
       [point({ brand: 'Carrefour Express', status: 'broken' }), point({ kind: 'machine', store_id: null as unknown as number, machine_id: 5 })],
       new Set(),
     ).features.map((f) => f.properties);
-    expect([store.badge, store.badgeColor, store.statusColor]).toEqual(['C', '#2D9B3A', '#D64545']);
-    expect(machine.badge).toBe('A');
-    expect(brandBadge('Żabka', null).label).toBe('Ż');
-    expect(brandBadge(null, 'Sklep u Ani')).toMatchObject({ label: 'S', color: '#5B6B73' });
+    expect([store.icon, store.statusColor]).toEqual(['brand-carrefour-express', '#D64545']);
+    expect(machine.icon).toBe('machine');
+    expect(brandBadge('Żabka', null)).toMatchObject({ icon: 'brand-zabka', label: 'Ż' });
+    expect(brandBadge(null, 'Sklep u Ani').icon).toBe('store');
   });
 });

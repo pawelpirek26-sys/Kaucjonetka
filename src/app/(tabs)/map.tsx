@@ -3,7 +3,7 @@ import {
   GeoJSONSource,
   Layer,
   Map,
-  Marker,
+  Images,
   type CameraRef,
   type GeoJSONSourceRef,
   type MapRef,
@@ -12,7 +12,7 @@ import {
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View, type NativeSyntheticEvent } from 'react-native';
+import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, useColorScheme, View, type NativeSyntheticEvent } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -26,6 +26,7 @@ import { getDb } from '@/lib/db';
 import { useWalletRevision } from '@/lib/events';
 import { distanceMeters, formatDistance, type LatLon } from '@/lib/geo';
 import { containsBounds, MIN_POINTS_ZOOM, normaliseBounds, padBounds, toFeatureCollection, type Bounds, type PointProperties } from '@/lib/mapData';
+import { MAP_ICONS } from '@/lib/mapIcons';
 import { openNavigation } from '@/lib/navigation';
 import { PACKAGING_LABELS, STATUS_COLORS, STATUS_LABELS, timeAgo } from '@/lib/status';
 import { supabase } from '@/lib/supabase/client';
@@ -172,6 +173,11 @@ export default function MapScreen() {
     setMapKey((k) => k + 1);
   };
 
+  const meFeature = useMemo<GeoJSON.Feature<GeoJSON.Point> | null>(
+    () => (me ? { type: 'Feature', geometry: { type: 'Point', coordinates: [me.lon, me.lat] }, properties: {} } : null),
+    [me],
+  );
+
   const geojson = useMemo(() => toFeatureCollection(points, new Set(mine)), [points, mine]);
 
   const onPress = async (e: NativeSyntheticEvent<{ features: GeoJSON.Feature[] }>) => {
@@ -215,6 +221,7 @@ export default function MapScreen() {
         onRegionDidChange={onRegionDidChange}
         onDidFinishLoadingMap={onMapLoaded}
         onDidFailLoadingMap={() => setMapFailed(true)}>
+        <Images images={MAP_ICONS} />
         <Camera ref={camera} initialViewState={start ?? { center: POLAND.center, zoom: POLAND.zoom }} />
         <GeoJSONSource id="kj-points" ref={source} data={geojson} cluster clusterRadius={45} clusterMaxZoom={13} onPress={onPress}>
           <Layer
@@ -249,40 +256,38 @@ export default function MapScreen() {
             paint={{ 'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 16, 16, 26], 'circle-color': theme.tint, 'circle-opacity': 0.3 }}
           />
           <Layer
-            id="kj-badges"
+            id="kj-status-ring"
             type="circle"
             filter={['!', ['has', 'point_count']]}
             paint={{
-              'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 8, 14, 13, 17, 17],
-              'circle-color': ['get', 'badgeColor'],
-              'circle-stroke-width': ['interpolate', ['linear'], ['zoom'], 10, 2, 14, 3.5],
-              'circle-stroke-color': ['get', 'statusColor'],
+              // a few px larger than the icon, so the status shows as a coloured ring
+              'circle-radius': ['interpolate', ['linear'], ['zoom'], 10, 10, 14, 17, 17, 21],
+              'circle-color': ['get', 'statusColor'],
             }}
           />
           <Layer
-            id="kj-badge-labels"
+            id="kj-icons"
             type="symbol"
-            afterId="kj-badges"
-            minzoom={12}
+            afterId="kj-status-ring"
             filter={['!', ['has', 'point_count']]}
             layout={{
-              'text-field': ['get', 'badge'],
-              'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 17, 15],
-              'text-font': [MAP_FONT],
-              'text-allow-overlap': true,
-              'text-ignore-placement': true,
+              'icon-image': ['get', 'icon'],
+              'icon-size': ['interpolate', ['linear'], ['zoom'], 10, 0.17, 14, 0.29, 17, 0.38],
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
             }}
-            paint={{ 'text-color': ['get', 'badgeText'] }}
           />
         </GeoJSONSource>
-        {me ? (
-          <Marker id="me" lngLat={[me.lon, me.lat]} anchor="center">
-            <View style={styles.meOuter} accessibilityLabel="Twoja pozycja">
-              <View style={[styles.meInner, { borderColor: dark ? '#0B0F0D' : '#FFFFFF' }]}>
-                <Text style={styles.meIcon}>🚶</Text>
-              </View>
-            </View>
-          </Marker>
+        {meFeature ? (
+          // drawn as a map image (not a view marker) so it stays sharp and above the points
+          <GeoJSONSource id="kj-me" data={meFeature}>
+            <Layer
+              id="kj-me-icon"
+              type="symbol"
+              afterId="kj-icons"
+              layout={{ 'icon-image': 'me', 'icon-size': 0.6, 'icon-allow-overlap': true, 'icon-ignore-placement': true }}
+            />
+          </GeoJSONSource>
         ) : null}
       </Map>
 
@@ -411,22 +416,6 @@ const styles = StyleSheet.create({
   },
   locateRing: { width: 24, height: 24, borderRadius: 12, borderWidth: 2.5, alignItems: 'center', justifyContent: 'center' },
   locateDot: { width: 8, height: 8, borderRadius: 4 },
-  meOuter: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(37,128,255,0.22)', alignItems: 'center', justifyContent: 'center' },
-  meInner: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#2580FF',
-    borderWidth: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  meIcon: { fontSize: 20, lineHeight: 24 },
   osm: { position: 'absolute', left: 8, bottom: 8, borderRadius: Radius.pill, paddingHorizontal: 8, paddingVertical: 2 },
   osmText: { fontSize: 11 },
   sheet: { position: 'absolute', left: Spacing.three, right: Spacing.three, bottom: Spacing.three, elevation: 8, shadowOpacity: 0.18, shadowRadius: 16 },
