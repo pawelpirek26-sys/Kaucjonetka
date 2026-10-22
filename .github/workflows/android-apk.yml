@@ -54,6 +54,8 @@ jobs:
   map-screenshot:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -84,4 +86,26 @@ jobs:
           name: map-screenshots
           path: screenshots
           retention-days: 14
+
+      - name: Print app log
+        if: always()
+        run: tail -200 screenshots/logcat-app.txt || true
+
+      # Artifacts are not reachable from every environment, so the latest screenshots are also
+      # committed (as normal commits, never force-pushed) to the ci-screenshots branch.
+      - name: Publish screenshots to the ci-screenshots branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api "repos/$REPO/git/refs" -f ref=refs/heads/ci-screenshots -f sha="${{ github.sha }}" > /dev/null 2>&1 || true
+          for f in map-light.png map-dark.png logcat-app.txt; do
+            [ -f "screenshots/$f" ] || continue
+            sha=$(gh api "repos/$REPO/contents/ci/$f?ref=ci-screenshots" --jq .sha 2>/dev/null || true)
+            base64 -w0 "screenshots/$f" > /tmp/content.b64
+            args=(-X PUT "repos/$REPO/contents/ci/$f" -f message="Map screenshot $f for ${{ github.sha }}" -f branch=ci-screenshots -F content=@/tmp/content.b64)
+            [ -n "$sha" ] && args+=(-f sha="$sha")
+            gh api "${args[@]}" > /dev/null
+          done
 

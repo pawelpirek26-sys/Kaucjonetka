@@ -13,7 +13,7 @@ adb logcat -c
 
 shoot() {
   adb shell am force-stop $PKG
-  adb shell am start -W -a android.intent.action.VIEW -d "kaucjomat://map?lat=52.2297&lon=21.0122&zoom=14.5" $PKG
+  adb shell am start -W -a android.intent.action.VIEW -d "kaucjomat://map?lat=52.2297&lon=21.0122&zoom=14.5"
   sleep 30
   adb exec-out screencap -p > "$OUT/map-$1.png"
 }
