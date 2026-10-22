@@ -33,6 +33,8 @@ import { supabase } from '@/lib/supabase/client';
 // `||`: an empty value in .env must not leave the map without a style (grey map)
 const MAP_STYLE_LIGHT = process.env.EXPO_PUBLIC_MAP_STYLE_URL || 'https://tiles.openfreemap.org/styles/liberty';
 const MAP_STYLE_DARK = process.env.EXPO_PUBLIC_MAP_STYLE_DARK_URL || 'https://tiles.openfreemap.org/styles/dark';
+// a font every OpenFreeMap style ships glyphs for
+const MAP_FONT = 'Noto Sans Regular';
 const EMPTY_IDS: number[] = [];
 const POLAND: { center: [number, number]; zoom: number } = { center: [19.4, 52.0], zoom: 5.3 };
 
@@ -229,11 +231,12 @@ export default function MapScreen() {
           <Layer
             id="kj-cluster-count"
             type="symbol"
+            afterId="kj-clusters"
             filter={['has', 'point_count']}
             layout={{
               'text-field': ['get', 'point_count_abbreviated'],
               'text-size': 14,
-              'text-font': ['Noto Sans Bold'],
+              'text-font': [MAP_FONT],
               'text-allow-overlap': true,
               'text-ignore-placement': true,
             }}
@@ -259,12 +262,13 @@ export default function MapScreen() {
           <Layer
             id="kj-badge-labels"
             type="symbol"
+            afterId="kj-badges"
             minzoom={12}
             filter={['!', ['has', 'point_count']]}
             layout={{
               'text-field': ['get', 'badge'],
               'text-size': ['interpolate', ['linear'], ['zoom'], 12, 10, 17, 15],
-              'text-font': ['Noto Sans Bold'],
+              'text-font': [MAP_FONT],
               'text-allow-overlap': true,
               'text-ignore-placement': true,
             }}

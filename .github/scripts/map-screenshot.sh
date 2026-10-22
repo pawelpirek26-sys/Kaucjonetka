@@ -8,6 +8,8 @@ mkdir -p "$OUT"
 adb install -r "$(ls apk/*.apk | head -1)"
 adb shell pm grant $PKG android.permission.ACCESS_FINE_LOCATION
 adb shell pm grant $PKG android.permission.ACCESS_COARSE_LOCATION
+adb shell settings put secure location_mode 3
+adb shell cmd location set-location-enabled true
 adb emu geo fix 21.0122 52.2297
 adb logcat -c
 
