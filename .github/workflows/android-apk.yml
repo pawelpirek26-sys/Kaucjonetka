@@ -1,6 +1,6 @@
 name: Android APK
 
-# Builds an installable release APK (signed with the debug key) and attaches it to the run.
+# Builds an installable release APK (signed with the debug key) and publishes it to the apk-latest release.
 on:
   workflow_dispatch:
   push:
@@ -13,6 +13,8 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     timeout-minutes: 60
     env:
       # Publishable values: they end up in every APK anyway. Repo variables override them.
@@ -40,15 +42,43 @@ jobs:
       - name: Generate native project
         run: npx expo prebuild --platform android --no-install
 
-      - name: Build APK
+      # Phones: 64-bit ARM only (every phone from roughly the last 8 years) with compressed
+      # native libraries, which keeps the download small.
+      - name: Build phone APK (arm64)
         working-directory: android
-        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64 -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --no-daemon
+        run: |
+          ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a -Pexpo.useLegacyPackaging=true -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../kaucjomat.apk
+          ls -lh ../kaucjomat.apk
+
+      # Separate x86_64 build, only for the emulator smoke test below.
+      - name: Build emulator APK (x86_64)
+        working-directory: android
+        run: |
+          ./gradlew assembleRelease -PreactNativeArchitectures=x86_64 -Pexpo.useLegacyPackaging=true -Dorg.gradle.jvmargs="-Xmx6g -XX:MaxMetaspaceSize=1g" --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../kaucjomat-emulator.apk
 
       - uses: actions/upload-artifact@v4
         with:
           name: kaucjomat-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: kaucjomat.apk
           retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kaucjomat-emulator-apk
+          path: kaucjomat-emulator.apk
+          retention-days: 7
+
+      # Stable public download link: https://github.com/<repo>/releases/download/apk-latest/kaucjomat.apk
+      - name: Publish APK to the apk-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view apk-latest > /dev/null 2>&1 || \
+            gh release create apk-latest --prerelease --title "Kaucjomat APK (najnowszy build)" --notes "APK budowany automatycznie."
+          gh release upload apk-latest kaucjomat.apk --clobber
+          gh release edit apk-latest --notes "Najnowszy build: ${{ github.sha }} (${{ github.ref_name }}). Pobierz kaucjomat.apk na telefonie i otwórz plik."
 
   # Smoke test on an emulator: screenshots of the map so rendering can be checked without a phone.
   map-screenshot:
@@ -62,7 +92,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: kaucjomat-apk
+          name: kaucjomat-emulator-apk
           path: apk
 
       - name: Enable KVM
